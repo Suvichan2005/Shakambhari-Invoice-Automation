@@ -149,7 +149,7 @@ def test_mobile_form_field_labels_sizes_and_defaults(live_server):
 
 
 def test_ai_hero_card_and_modal_actions(live_server):
-    """Test Hero Card and AI Modal buttons, reassuring banner, and options."""
+    """Test Hero Card and AI Modal buttons, title, and actions."""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(viewport={'width': 412, 'height': 915})
@@ -160,7 +160,8 @@ def test_ai_hero_card_and_modal_actions(live_server):
         # Hero Card presence
         hero = page.locator(".ai-hero-card")
         assert hero.is_visible()
-        assert "Safe: Nothing is saved automatically" in hero.inner_text()
+        assert "Chit & Slip Assistant" in hero.inner_text()
+        assert "Take Photo" in hero.inner_text()
 
         # Check hero buttons
         btn_photo = page.locator(".btn-hero-photo")
@@ -175,9 +176,9 @@ def test_ai_hero_card_and_modal_actions(live_server):
         ai_modal = page.locator("#ai_modal")
         assert ai_modal.is_visible()
 
-        # Verify safety banner in modal
-        banner_text = page.locator(".ai-modal-safety-banner").inner_text()
-        assert "Nothing is saved automatically" in banner_text
+        # Verify modern title and subtitle in modal
+        modal_title = page.locator("#ai_modal .modal-title").inner_text()
+        assert "Chit & Slip Assistant" in modal_title
 
         # Close modal
         page.click(".modal-close-btn")

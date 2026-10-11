@@ -2404,9 +2404,6 @@
                             <div class="ai-hero-desc">Take a photo of paper chits or speak details. Single or multiple bills on one slip supported.</div>
                         </div>
                     </div>
-                    <div class="ai-hero-safety-badge">
-                        <span>🛡️ Safe: Nothing is saved automatically</span>
-                    </div>
                 </div>
                 <div class="ai-hero-buttons-grid">
                     <button type="button" class="btn-hero-action btn-hero-photo" onclick="event.stopPropagation(); triggerHeroCamera()">
@@ -2772,36 +2769,31 @@
     <!-- CHIT & SLIP ASSISTANT MODAL -->
     <div id="ai_modal" class="modal-overlay" style="display: none;">
         <div class="modal-window" style="max-width: 680px; height: 90vh; max-height: 820px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
-            <div class="modal-header-modern" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; flex-shrink: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0;">
+            <div class="modal-header-modern" style="flex-shrink: 0; background: #ffffff; border-bottom: 1px solid var(--slate-200); padding: 14px 18px;">
                 <div class="modal-title-group">
-                    <div class="modal-icon-badge" style="background: rgba(255,255,255,0.25);">✨</div>
+                    <div class="modal-icon-badge" style="background: #eef2ff; color: #4f46e5; border-radius: 10px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">✨</div>
                     <div>
-                        <h2 class="modal-title" style="color: white; font-size: 1.2rem;">Chit & Slip Assistant</h2>
-                        <p class="modal-subtitle" style="color: rgba(255,255,255,0.9); font-size: 0.85rem;">Take photo of chits, upload slips, or speak bill details</p>
+                        <h2 class="modal-title" style="font-size: 1.15rem; font-weight: 700; color: var(--slate-900);">Chit & Slip Assistant</h2>
+                        <p class="modal-subtitle" style="font-size: 0.85rem; color: var(--slate-500);">Scan paper slips, weight memos, or speak bill details</p>
                     </div>
                 </div>
-                <button type="button" class="modal-close-btn" onclick="closeAiModal()" style="background: rgba(255,255,255,0.25); color: white;">&times;</button>
-            </div>
-
-            <!-- Reassurance Safety Banner -->
-            <div class="ai-modal-safety-banner">
-                <span>🛡️ Nothing is saved automatically. Review and edit everything on screen before generating.</span>
+                <button type="button" class="modal-close-btn" onclick="closeAiModal()">&times;</button>
             </div>
 
             <!-- Quick Action Chips Bar -->
-            <div class="ai-chips-bar" style="padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--slate-200); display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0;">
-                <label class="ai-chip" style="cursor: pointer; background: #e0e7ff; color: #3730a3; font-weight: 700;">
+            <div class="ai-chips-bar" style="padding: 10px 16px; background: #ffffff; border-bottom: 1px solid var(--slate-200); display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0;">
+                <label class="ai-chip" style="cursor: pointer; background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; border-radius: 20px; padding: 8px 14px; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <span>📷 Take Photo</span>
                     <input type="file" id="ai_camera_input" accept="image/*" capture="environment" style="display: none;" onchange="handleAiFileSelect(event)">
                 </label>
-                <label class="ai-chip" style="cursor: pointer; background: #f1f5f9; color: #334155; font-weight: 700;">
+                <label class="ai-chip" style="cursor: pointer; background: #f8fafc; color: #334155; border: 1px solid var(--slate-200); font-weight: 600; border-radius: 20px; padding: 8px 14px; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <span>📁 Upload Slip</span>
                     <input type="file" id="ai_file_input" accept="image/*" multiple style="display: none;" onchange="handleAiFileSelect(event)">
                 </label>
-                <button type="button" class="ai-chip" id="btn_chip_mic" onclick="toggleVoiceInput()" style="background: #f1f5f9; color: #334155; font-weight: 700;">
+                <button type="button" class="ai-chip" id="btn_chip_mic" onclick="toggleVoiceInput()" style="background: #f8fafc; color: #334155; border: 1px solid var(--slate-200); font-weight: 600; border-radius: 20px; padding: 8px 14px; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <span id="chip_mic_icon">🎙️ Speak Details</span>
                 </button>
-                <button type="button" class="ai-chip" onclick="prefillAiPrompt('Create a new buyer named ')">
+                <button type="button" class="ai-chip" onclick="prefillAiPrompt('Create a new buyer named ')" style="background: #f8fafc; color: #334155; border: 1px solid var(--slate-200); font-weight: 600; border-radius: 20px; padding: 8px 14px; font-size: 0.88rem; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;">
                     <span>🏢 New Party</span>
                 </button>
             </div>
@@ -2813,13 +2805,13 @@
                     <div class="ai-bubble-avatar">✨</div>
                     <div class="ai-bubble-content">
                         <div style="font-weight: 700; margin-bottom: 4px; color: var(--primary);">Chit & Slip Assistant</div>
-                        <div>Take a photo of your paper chit, upload a slip from your gallery, or speak bill details. Single or multiple bills on one slip are supported. Nothing is saved until you confirm!</div>
+                        <div>Upload a photo of your paper chit, slip, or order memo, or speak details to prepare bills automatically.</div>
                     </div>
                 </div>
             </div>
 
             <!-- Staged Attachments Preview Strip -->
-            <div id="ai_thumbnail_container" class="thumbnails-strip" style="display: none;"></div>
+            <div id="ai_thumbnail_container" style="display: none; padding: 8px 16px; background: #ffffff; border-top: 1px solid var(--slate-200); flex-shrink: 0;"></div>
 
             <!-- Loading Indicator -->
             <div id="ai_status_spinner" style="display: none; padding: 10px 16px; background: #eef2ff; color: #4338ca; font-size: 0.92rem; font-weight: 700; text-align: center; border-top: 1px solid #c7d2fe; flex-shrink: 0;">
@@ -2827,12 +2819,12 @@
             </div>
 
             <!-- Bottom Composer Bar -->
-            <div class="ai-composer-bar" style="padding: 12px 16px; background: #ffffff; border-top: 1.5px solid var(--slate-200); display: flex; gap: 10px; align-items: center; flex-shrink: 0;">
-                <button type="button" id="btn_mic_input" class="btn-mic" onclick="toggleVoiceInput()" style="height: 46px; min-width: 46px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+            <div class="ai-composer-bar" style="padding: 10px 16px; background: #ffffff; border-top: 1.5px solid var(--slate-200); display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
+                <button type="button" id="btn_mic_input" class="btn-mic" onclick="toggleVoiceInput()" style="height: 46px; min-width: 46px; border-radius: 50%; border: 1.5px solid var(--slate-300); background: #f8fafc; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; cursor: pointer;" title="Speak details">
                     <span id="mic_icon">🎙️</span>
                 </button>
-                <input type="text" id="ai_prompt_text" class="field-input" style="flex: 1; height: 46px; font-size: 0.98rem; border-radius: 24px; padding: 0 16px;" placeholder="Speak or type (e.g. Das Metal 2 bags 89.5 kg @ 400)..." onkeydown="if(event.key==='Enter') submitAiMessage()">
-                <button type="button" id="btn_send_ai" class="btn btn-primary" style="height: 46px; border-radius: 24px; padding: 0 20px; font-weight: 700;" onclick="submitAiMessage()">
+                <input type="text" id="ai_prompt_text" class="field-input" style="flex: 1; height: 46px; font-size: 1rem; border-radius: 24px; padding: 0 16px; border: 1.5px solid var(--slate-300); background: #f8fafc;" placeholder="Type message or speak details..." onkeydown="if(event.key==='Enter') submitAiMessage()">
+                <button type="button" id="btn_send_ai" class="btn btn-primary" style="height: 46px; min-width: 72px; border-radius: 24px; padding: 0 18px; font-weight: 700; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center;" onclick="submitAiMessage()">
                     Send
                 </button>
             </div>
@@ -3729,25 +3721,25 @@
                 container.innerHTML = '';
                 const promptEl = document.getElementById('ai_prompt_text');
                 if (promptEl) {
-                    promptEl.placeholder = "Speak or type (e.g. Das Metal 2 bags 89.5 kg @ 400)...";
+                    promptEl.placeholder = "Type message or speak details...";
                 }
                 return;
             }
-            container.style.display = 'flex';
+            container.style.display = 'block';
             container.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 4px;">
-                    <span style="font-weight: 700; font-size: 0.85rem; color: #4338ca;">📎 Attached Photo(s): ${uploadedAiImages.length}</span>
-                    <span style="font-size: 0.78rem; color: #64748b;">Tap ✕ to remove • Type notes or tap Send</span>
-                </div>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 12px; overflow-x: auto; padding: 4px 2px; align-items: center; width: 100%;">
                     ${uploadedAiImages.map((img, i) => `
-                        <div class="thumbnail-card">
-                            <img src="${img.data}" alt="${img.name || 'Photo'}">
-                            <button type="button" class="thumbnail-delete" onclick="removeAiImage(${i})" title="Remove photo">✕</button>
+                        <div class="thumbnail-card" style="position: relative; width: 68px; height: 68px; min-width: 68px; border-radius: 12px; overflow: visible; box-shadow: 0 2px 6px rgba(0,0,0,0.08); border: 1.5px solid #cbd5e1; background: #f8fafc; flex-shrink: 0;">
+                            <img src="${img.data}" alt="${img.name || 'Photo'}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block;">
+                            <button type="button" class="thumbnail-delete" onclick="removeAiImage(${i})" title="Remove photo" style="position: absolute; top: -6px; right: -6px; width: 22px; height: 22px; border-radius: 50%; background: #0f172a; color: #ffffff; border: 2px solid #ffffff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.25); line-height: 1; padding: 0;">✕</button>
                         </div>
                     `).join('')}
                 </div>
             `;
+            const promptEl = document.getElementById('ai_prompt_text');
+            if (promptEl) {
+                promptEl.placeholder = "Add notes (optional) or tap Send...";
+            }
         }
 
         function resizeImage(file, maxDimension = 1500, quality = 0.85) {
@@ -3801,7 +3793,7 @@
 
             if (promptEl) {
                 promptEl.value = '';
-                promptEl.placeholder = "Speak or type (e.g. Das Metal 2 bags 89.5 kg @ 400)...";
+                promptEl.placeholder = "Type message or speak details...";
             }
 
             const stream = document.getElementById('ai_chat_stream');
