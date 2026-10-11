@@ -1063,9 +1063,17 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
         sheet[f'F{row_idx}'] = ''
         sheet[f'G{row_idx}'] = ''
         sheet[f'H{row_idx}'] = ''
+        sheet[f'I{row_idx}'] = ''
+        for col_letter in ['A', 'F', 'G', 'H', 'I']:
+            ref_cell = sheet[f'{col_letter}22']
+            target_cell = sheet[f'{col_letter}{row_idx}']
+            if row_idx > 22 and ref_cell.border:
+                target_cell.border = copy(ref_cell.border)
 
     item_rows = []
     template_hsn = sheet['H22'].value or '76151030'
+    base_font_name = sheet['A22'].font.name if sheet['A22'].font else 'Calibri'
+    base_font_size = sheet['A22'].font.size if sheet['A22'].font else 10
     
     for idx, item in enumerate(items[:10]):
         row_num = first_item_row + idx
@@ -1082,11 +1090,27 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
         rate = safe_float(item.get('rate', 0), 0.0)
 
         sheet[f'A{row_num}'] = description
-        if hsn_value:
-            sheet[f'H{row_num}'] = hsn_value
+        sheet[f'A{row_num}'].alignment = Alignment(horizontal='left', vertical='center')
+        sheet[f'A{row_num}'].font = Font(name=base_font_name, size=base_font_size, bold=False)
+
         sheet[f'F{row_num}'] = quantity
+        sheet[f'F{row_num}'].alignment = Alignment(horizontal='center', vertical='center')
+        sheet[f'F{row_num}'].font = Font(name=base_font_name, size=base_font_size, bold=False)
+        sheet[f'F{row_num}'].number_format = '0.000'
+
         sheet[f'G{row_num}'] = rate
+        sheet[f'G{row_num}'].alignment = Alignment(horizontal='center', vertical='center')
+        sheet[f'G{row_num}'].font = Font(name=base_font_name, size=base_font_size, bold=False)
+        sheet[f'G{row_num}'].number_format = '0.00'
+
+        sheet[f'H{row_num}'] = hsn_value
+        sheet[f'H{row_num}'].alignment = Alignment(horizontal='center', vertical='center')
+        sheet[f'H{row_num}'].font = Font(name=base_font_name, size=base_font_size, bold=True)
+
         sheet[f'I{row_num}'] = f'=F{row_num}*G{row_num}'
+        sheet[f'I{row_num}'].alignment = Alignment(horizontal='right', vertical='center')
+        sheet[f'I{row_num}'].font = Font(name=base_font_name, size=base_font_size, bold=False)
+        sheet[f'I{row_num}'].number_format = '0.00'
 
     # --- SUBTOTALS & TAXES ---
     if len(item_rows) == 1:
@@ -1344,6 +1368,21 @@ def index():
         except Exception as exc:
             app.logger.warning('Could not list storage invoices for modal merge: %s', exc)
 
+    # Deduplicate recent invoices by invoice number
+    deduped_invs = {}
+    for inv in recent_invoices:
+        inv_num = str(inv.get('invoice_number', '')).strip()
+        if not inv_num:
+            continue
+        if inv_num not in deduped_invs:
+            deduped_invs[inv_num] = inv
+        else:
+            prev = deduped_invs[inv_num]
+            if (inv.get('sort_ts') or 0) > (prev.get('sort_ts') or 0) or (inv.get('total_amount') and not prev.get('total_amount')):
+                deduped_invs[inv_num] = inv
+    recent_invoices = list(deduped_invs.values())
+    recent_invoices.sort(key=_invoice_sort_key, reverse=True)
+
     load_invoice_number = request.args.get('load', '').strip()
     preload_invoice = None
     if load_invoice_number:
@@ -1446,6 +1485,7 @@ def generate_invoice():
         # Parse items
         descriptions = request.form.getlist('item_description[]')
         bags = request.form.getlist('item_bags[]')
+        units = request.form.getlist('item_unit[]')
         item_hsns = request.form.getlist('item_hsn[]')
         quantities = request.form.getlist('item_quantity[]')
         rates = request.form.getlist('item_rate[]')
@@ -1458,18 +1498,23 @@ def generate_invoice():
                 
                 if qty > 0 or rate > 0:
                     desc = descriptions[i].strip()
-                    bag_val = bags[i].strip() if i < len(bags) and bags[i] else ''
+                    raw_bag = bags[i].strip() if i < len(bags) and bags[i] else ''
+                    unit_val = units[i].strip() if i < len(units) and units[i].strip() else 'Bags'
                     
-                    # Prevent duplication by stripping existing bags suffix
-                    desc = re.sub(r'\s*\(\s*\d+(?:\.\d+)?\s*Bags?\s*\)', '', desc, flags=re.IGNORECASE).strip()
+                    # Clean bag value: strip any unit text so only the count remains
+                    clean_bag = re.sub(r'(?i)\s*(?:bags?|bundles?|boxes?|pkts?|cartons?)', '', raw_bag).strip()
                     
-                    if bag_val:
-                        desc += f" ({bag_val} Bags)"
+                    # Prevent duplication by stripping any existing packaging suffix from description
+                    desc = re.sub(r'\s*\(\s*[\d\.]+\s*(?:[A-Za-z]+|\s*)+\)', '', desc, flags=re.IGNORECASE).strip()
+                    
+                    if clean_bag:
+                        desc += f" ({clean_bag} {unit_val})"
                     
                     hsn = item_hsns[i].strip() if i < len(item_hsns) else ''
                     items.append({
                         'description': desc,
-                        'bags': bag_val,
+                        'bags': clean_bag,
+                        'unit': unit_val,
                         'hsn': hsn,
                         'quantity': qty,
                         'rate': rate,
@@ -1601,39 +1646,134 @@ def generate_invoice():
         return redirect(url_for('index'))
 
 
-@app.route('/download/xlsx/<filename>')
-def download_xlsx(filename):
-    """Download an Excel invoice."""
-    safe_name = _safe_filename(filename, '.xlsx')
+def _resolve_and_fetch_invoice_file(target: str, ext: str) -> Tuple[Optional[bytes], str]:
+    """
+    Find or generate invoice file (XLSX or PDF) by exact filename or invoice number.
+    Returns (file_bytes, filename) or (None, '').
+    """
     storage = get_cloud_storage()
-    file_bytes = storage.download_invoice_xlsx(safe_name)
-    
+    if not storage:
+        return None, ''
+
+    ext = ext.lower()
+    if not ext.startswith('.'):
+        ext = '.' + ext
+
+    # 1. Direct match if target is an exact filename
+    cleaned_target = os.path.basename(target.strip())
+    if cleaned_target.lower().endswith(ext):
+        file_bytes = storage.download_invoice_xlsx(cleaned_target) if ext == '.xlsx' else storage.download_invoice_pdf(cleaned_target)
+        if file_bytes:
+            return file_bytes, cleaned_target
+
+    # 2. Extract invoice number or search pattern
+    num_m = re.search(r'(\d+)', target)
+    num_val = int(num_m.group(1)) if num_m else None
+    pat = target.replace('/', '-').replace(' ', '_').strip()
+
+    matching_xlsx_blob = None
+    matching_pdf_blob = None
+
+    try:
+        blobs = list(storage.client.list_blobs(storage.bucket_name, prefix=storage.INVOICES_FOLDER))
+        for b in blobs:
+            bname = b.name.replace(storage.INVOICES_FOLDER, '')
+            if ext == '.pdf' and bname.lower().endswith('.pdf'):
+                if (pat and pat.lower() in bname.lower()) or (num_val is not None and re.search(rf'Invoice_0*{num_val}[-_]', bname)):
+                    matching_pdf_blob = bname
+                    break
+            if bname.lower().endswith('.xlsx'):
+                if (pat and pat.lower() in bname.lower()) or (num_val is not None and re.search(rf'Invoice_0*{num_val}[-_]', bname)):
+                    matching_xlsx_blob = bname
+                    if ext == '.xlsx':
+                        break
+    except Exception as exc:
+        app.logger.warning("Error searching GCS for invoice %s: %s", target, exc)
+
+    if ext == '.pdf':
+        if matching_pdf_blob:
+            b_bytes = storage.download_invoice_pdf(matching_pdf_blob)
+            if b_bytes:
+                return b_bytes, matching_pdf_blob
+        # If no PDF blob, but matching XLSX exists, convert on the fly!
+        if matching_xlsx_blob:
+            xlsx_bytes = storage.download_invoice_xlsx(matching_xlsx_blob)
+            if xlsx_bytes:
+                pdf_bytes = generate_pdf_from_excel(xlsx_bytes, matching_xlsx_blob)
+                if pdf_bytes:
+                    pdf_name = os.path.splitext(matching_xlsx_blob)[0] + '.pdf'
+                    try:
+                        storage.upload_invoice_pdf(pdf_bytes, pdf_name)
+                    except Exception:
+                        pass
+                    return pdf_bytes, pdf_name
+    elif ext == '.xlsx':
+        if matching_xlsx_blob:
+            b_bytes = storage.download_invoice_xlsx(matching_xlsx_blob)
+            if b_bytes:
+                return b_bytes, matching_xlsx_blob
+
+    # 3. Fallback: Lookup invoice in Sheets DB and generate on the fly
+    db = get_sheets_db_or_none()
+    if db:
+        try:
+            inv = db.get_invoice(target)
+            if inv:
+                wb = generate_invoice_excel(inv)
+                out = io.BytesIO()
+                wb.save(out)
+                xlsx_bytes = out.getvalue()
+                safe_inv_num = inv.get('invoice_number', 'invoice').replace('/', '-')
+                buyer_part = _safe_filename(inv.get('buyer_name', ''), '').replace('.xlsx', '')
+                xlsx_name = f"Invoice_{safe_inv_num}_{buyer_part}.xlsx"
+                try:
+                    storage.upload_invoice_xlsx(xlsx_bytes, xlsx_name)
+                except Exception:
+                    pass
+                if ext == '.xlsx':
+                    return xlsx_bytes, xlsx_name
+                elif ext == '.pdf':
+                    pdf_bytes = generate_pdf_from_excel(xlsx_bytes, xlsx_name)
+                    if pdf_bytes:
+                        pdf_name = os.path.splitext(xlsx_name)[0] + '.pdf'
+                        try:
+                            storage.upload_invoice_pdf(pdf_bytes, pdf_name)
+                        except Exception:
+                            pass
+                        return pdf_bytes, pdf_name
+        except Exception as exc:
+            app.logger.warning("Sheets fallback generation failed for %s: %s", target, exc)
+
+    return None, ''
+
+
+@app.route('/download/xlsx/<path:filename>')
+@app.route('/download_xlsx/<path:filename>')
+def download_xlsx(filename):
+    """Download an Excel invoice by filename or invoice number."""
+    file_bytes, safe_name = _resolve_and_fetch_invoice_file(filename, '.xlsx')
     if not file_bytes:
-        flash("File not found.", "error")
+        flash("Excel invoice file could not be found.", "error")
         return redirect(url_for('index'))
-    
     return Response(
         file_bytes,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={'Content-Disposition': f'attachment; filename={safe_name}'}
+        headers={'Content-Disposition': f'attachment; filename="{safe_name}"'}
     )
 
 
-@app.route('/download/pdf/<filename>')
+@app.route('/download/pdf/<path:filename>')
+@app.route('/download_pdf/<path:filename>')
 def download_pdf(filename):
-    """Download a PDF invoice."""
-    safe_name = _safe_filename(filename, '.pdf')
-    storage = get_cloud_storage()
-    file_bytes = storage.download_invoice_pdf(safe_name)
-    
+    """Download a PDF invoice by filename or invoice number."""
+    file_bytes, safe_name = _resolve_and_fetch_invoice_file(filename, '.pdf')
     if not file_bytes:
-        flash("PDF not found.", "error")
+        flash("PDF invoice file could not be found.", "error")
         return redirect(url_for('index'))
-    
     return Response(
         file_bytes,
         mimetype='application/pdf',
-        headers={'Content-Disposition': f'attachment; filename={safe_name}'}
+        headers={'Content-Disposition': f'attachment; filename="{safe_name}"'}
     )
 
 
@@ -1932,7 +2072,7 @@ def _enrich_invoice_for_frontend(invoice: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.route('/api/invoices')
 def api_get_invoices():
-    """API endpoint to get latest invoice records in real-time."""
+    """API endpoint to get latest invoice records in real-time, deduplicated by invoice number."""
     db = get_sheets_db_or_none()
     try:
         sheet_invoices = db.get_all_invoices(limit=2000) if db else []
@@ -1947,7 +2087,22 @@ def api_get_invoices():
     except Exception as exc:
         app.logger.warning("Could not list storage invoices: %s", exc)
 
-    return jsonify({'success': True, 'invoices': recent_invoices})
+    # Deduplicate invoices by invoice_number
+    deduped = {}
+    for inv in recent_invoices:
+        inv_num = str(inv.get('invoice_number', '')).strip()
+        if not inv_num:
+            continue
+        if inv_num not in deduped:
+            deduped[inv_num] = inv
+        else:
+            prev = deduped[inv_num]
+            if (inv.get('sort_ts') or 0) > (prev.get('sort_ts') or 0) or (inv.get('total_amount') and not prev.get('total_amount')):
+                deduped[inv_num] = inv
+
+    deduped_list = list(deduped.values())
+    deduped_list.sort(key=_invoice_sort_key, reverse=True)
+    return jsonify({'success': True, 'invoices': deduped_list})
 
 
 @app.route('/api/invoice/<path:invoice_number>')
@@ -2157,7 +2312,8 @@ def api_ai_parse_bill():
         "   - Match transport to KNOWN TRANSPORTS (e.g. 'Gaya transport' -> 'By Gaya Aurangabad Transport', 'SPS' -> 'SPS PARRCELL PRIVATE LIMITED').\n"
         "   - Dispatch from: default to Liluah Warehouse address unless an alternate dispatch address is indicated.\n\n"
         "4. GOODS & TAXATION:\n"
-        "   - Default description: 'Aluminium Utensils' (with bag count if noted, e.g. 'Aluminium Utensils (2 Bags)').\n"
+        "   - Default description: 'Aluminium Utensils'.\n"
+        "   - Packaging unit: default 'Bags', but if 'bundle', 'bundles', 'box', 'boxes', 'carton' or another packaging is noted on the slip or spoken, set 'unit' accordingly (e.g. 'Bundles').\n"
         "   - Default HSN: '76151030'.\n"
         "   - Tax type: 'IGST' if buyer is outside West Bengal (State Code != 19) or unknown; 'CGST_SGST' if buyer is within West Bengal (State Code 19).\n"
         "   - If any handwriting or rate/weight is blurry or ambiguous, list a specific question in 'clarifications'.\n\n"
@@ -2190,6 +2346,7 @@ def api_ai_parse_bill():
         '      {\n'
         '        "description": "Aluminium Utensils",\n'
         '        "bags": "2",\n'
+        '        "unit": "Bags",\n'
         '        "quantity": 89.080,\n'
         '        "rate": 400.00,\n'
         '        "hsn": "76151030"\n'
@@ -2312,6 +2469,53 @@ def api_ai_parse_bill():
             continue
 
     return jsonify({'success': False, 'error': f'All AI vision models were busy or rate-limited. Please retry shortly. Last error: {last_error}'}), 500
+
+
+@app.route('/api/ai/create-buyer', methods=['POST'])
+def api_ai_create_buyer():
+    """Create a new buyer profile directly from AI Assistant into Google Sheets directory."""
+    data = request.get_json(silent=True) or {}
+    buyer_name = (data.get('buyer_name') or '').strip()
+    if not buyer_name:
+        return jsonify({'success': False, 'error': 'Buyer name is required.'}), 400
+
+    profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+    details = data.get('buyer_details')
+    if isinstance(details, str):
+        details = [line.strip() for line in details.splitlines() if line.strip()]
+    elif not isinstance(details, list):
+        details = [buyer_name]
+
+    gstin = (data.get('gstin') or '').strip().upper()
+    state = (data.get('state') or '').strip()
+    state_code = (data.get('state_code') or '').strip()
+    if not state_code and len(gstin) >= 2 and gstin[:2].isdigit():
+        state_code = gstin[:2]
+
+    tax_type = data.get('default_tax_type') or data.get('tax_type') or ('CGST_SGST' if state_code == '19' else 'IGST')
+
+    new_profile = {
+        'profile_id': profile_id,
+        'buyer_name': buyer_name,
+        'buyer_details': details,
+        'gstin': gstin,
+        'state': state,
+        'state_code': state_code,
+        'default_tax_type': tax_type
+    }
+
+    try:
+        db = get_sheets_db_or_none()
+        if db:
+            db.save_buyer(new_profile)
+    except Exception as exc:
+        app.logger.warning("Failed to save buyer to Sheets: %s", exc)
+
+    return jsonify({
+        'success': True,
+        'buyer': new_profile,
+        'message': f"Saved '{buyer_name}' to directory."
+    })
 
 
 @app.errorhandler(404)

@@ -1633,6 +1633,289 @@
         .records-table tr:hover td {
             background: var(--slate-50);
         }
+
+        /* Past Invoices Mobile Cards View (Optimized for Dad / Moto G67 Power) */
+        .records-cards-wrap {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 65vh;
+            overflow-y: auto;
+            padding-bottom: 16px;
+        }
+
+        .invoice-mobile-card {
+            background: #ffffff;
+            border: 1.5px solid var(--slate-200);
+            border-radius: var(--radius-lg);
+            padding: 14px 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .invoice-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .invoice-card-number {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--primary);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .invoice-card-date {
+            font-size: 0.88rem;
+            color: var(--slate-500);
+            font-weight: 600;
+            background: var(--slate-100);
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+
+        .invoice-card-buyer {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--slate-900);
+            line-height: 1.35;
+        }
+
+        .invoice-card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: var(--slate-600);
+            border-top: 1px dashed var(--slate-200);
+            padding-top: 8px;
+            margin-top: 2px;
+        }
+
+        .invoice-card-total {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--slate-900);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .invoice-card-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1.35fr;
+            gap: 8px;
+            margin-top: 6px;
+        }
+
+        .btn-card-action {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+            padding: 10px 6px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            cursor: pointer;
+            border: 1.5px solid transparent;
+            box-sizing: border-box;
+            transition: all 0.15s ease;
+        }
+
+        .btn-card-pdf {
+            background: #fef2f2;
+            color: #b91c1c;
+            border-color: #fca5a5;
+        }
+
+        .btn-card-pdf:active {
+            background: #fee2e2;
+        }
+
+        .btn-card-excel {
+            background: #f0fdf4;
+            color: #15803d;
+            border-color: #86efac;
+        }
+
+        .btn-card-excel:active {
+            background: #dcfce7;
+        }
+
+        .btn-card-edit {
+            background: #eef2ff;
+            color: #4338ca;
+            border-color: #a5b4fc;
+        }
+
+        .btn-card-edit:active {
+            background: #e0e7ff;
+        }
+
+        @media (max-width: 768px) {
+            .records-table-wrap {
+                display: none !important;
+            }
+            .records-cards-wrap {
+                display: flex !important;
+            }
+        }
+
+        /* Modern Agentic AI Chat Styles */
+        .ai-chips-bar {
+            scrollbar-width: thin;
+        }
+        .ai-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 13px;
+            background: #ffffff;
+            border: 1.5px solid var(--slate-200);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--slate-700);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .ai-chip:hover, .ai-chip:active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: #f0f4ff;
+        }
+        .ai-chat-bubble {
+            display: flex;
+            gap: 10px;
+            max-width: 90%;
+            animation: fadeIn 0.25s ease-out;
+        }
+        .ai-bubble-user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+        .ai-bubble-assistant {
+            align-self: flex-start;
+        }
+        .ai-bubble-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            box-shadow: 0 2px 5px rgba(79, 70, 229, 0.3);
+        }
+        .ai-bubble-user .ai-bubble-avatar {
+            background: var(--slate-700);
+        }
+        .ai-bubble-content {
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 0.92rem;
+            line-height: 1.45;
+            color: var(--slate-800);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .ai-bubble-user .ai-bubble-content {
+            background: #4f46e5;
+            color: #ffffff;
+            border-color: #4338ca;
+        }
+        .ai-party-card {
+            background: #f8fafc;
+            border: 1.5px solid var(--slate-200);
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .ai-party-new {
+            background: #fefce8;
+            border-color: #fef08a;
+        }
+        .btn-ai-save-buyer {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 14px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            border-radius: 8px;
+            background: #4f46e5;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s ease;
+        }
+        .btn-ai-save-buyer:hover {
+            background: #4338ca;
+        }
+        .ai-breakdown-card {
+            background: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .ai-clarification-chip {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            padding: 5px 10px;
+            border-radius: 16px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 3px 4px 3px 0;
+        }
+        .ai-clarification-chip:hover {
+            background: #dbeafe;
+        }
+        .btn-ai-autofill {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 48px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+            transition: all 0.2s ease;
+        }
+        .btn-ai-autofill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.45);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -1863,7 +2146,7 @@
                                 <tr>
                                     <th style="width: 36px; text-align: center;">#</th>
                                     <th>Description of Goods</th>
-                                    <th style="width: 80px;">Bags</th>
+                                    <th style="width: 140px;">Packaging</th>
                                     <th style="width: 90px;">HSN</th>
                                     <th style="width: 110px;">Qty (Kg)</th>
                                     <th style="width: 100px;">Rate (₹)</th>
@@ -1875,6 +2158,14 @@
                                 <!-- Dynamic rows rendered here -->
                             </tbody>
                         </table>
+                        <datalist id="packaging_units_list">
+                            <option value="Bags">
+                            <option value="Bundles">
+                            <option value="Boxes">
+                            <option value="Cartons">
+                            <option value="Pieces">
+                            <option value="Pkts">
+                        </datalist>
                     </div>
 
                     <div class="items-footer-bar">
@@ -2045,122 +2336,70 @@
         </div>
     </div>
 
-    <!-- SMART SLIP ASSISTANT MODAL (With Microphone Speech Input) -->
+    <!-- SMART SLIP ASSISTANT MODAL (AGENTIC CONVERSATIONAL CHAT) -->
     <div id="ai_modal" class="modal-overlay" style="display: none;">
-        <div class="modal-window">
-            <div class="modal-header-modern" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white;">
+        <div class="modal-window" style="max-width: 680px; height: 90vh; max-height: 820px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+            <div class="modal-header-modern" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; flex-shrink: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0;">
                 <div class="modal-title-group">
-                    <div class="modal-icon-badge" style="background: rgba(255,255,255,0.2);">✨</div>
+                    <div class="modal-icon-badge" style="background: rgba(255,255,255,0.25);">✨</div>
                     <div>
-                        <h2 class="modal-title" style="color: white;">Smart Slip Assistant</h2>
-                        <p class="modal-subtitle" style="color: rgba(255,255,255,0.85);">Upload slip photo or speak instructions into the mic</p>
+                        <h2 class="modal-title" style="color: white; font-size: 1.2rem;">AI Billing Assistant</h2>
+                        <p class="modal-subtitle" style="color: rgba(255,255,255,0.9); font-size: 0.85rem;">Snap rough slips, speak instructions, or manage buyer directory</p>
                     </div>
                 </div>
-                <button type="button" class="modal-close-btn" onclick="closeAiModal()" style="background: rgba(255,255,255,0.2); color: white;">&times;</button>
+                <button type="button" class="modal-close-btn" onclick="closeAiModal()" style="background: rgba(255,255,255,0.25); color: white;">&times;</button>
             </div>
 
-            <div class="modal-body-scroll">
-                <div style="background: #eef2ff; border-left: 4px solid #4f46e5; padding: 10px 14px; border-radius: 6px; font-size: 0.88rem; color: #3730a3; margin-bottom: 16px;">
-                    ℹ️ Upload slip or speak notes. Assistant will extract details and let you review before populating the form.
-                </div>
+            <!-- Quick Action Chips Bar -->
+            <div class="ai-chips-bar" style="padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--slate-200); display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0;">
+                <label class="ai-chip" style="cursor: pointer;">
+                    <span>📷 Take Photo</span>
+                    <input type="file" id="ai_camera_input" accept="image/*" capture="environment" style="display: none;" onchange="handleAiFileSelect(event)">
+                </label>
+                <label class="ai-chip" style="cursor: pointer;">
+                    <span>📁 Upload Slip</span>
+                    <input type="file" id="ai_file_input" accept="image/*" multiple style="display: none;" onchange="handleAiFileSelect(event)">
+                </label>
+                <button type="button" class="ai-chip" id="btn_chip_mic" onclick="toggleVoiceInput()">
+                    <span id="chip_mic_icon">🎙️ Speak</span>
+                </button>
+                <button type="button" class="ai-chip" onclick="prefillAiPrompt('Create a new buyer named ')">
+                    <span>🏢 New Party</span>
+                </button>
+                <button type="button" class="ai-chip" onclick="prefillAiPrompt('Use next invoice number ')">
+                    <span>⚡ Next Bill #</span>
+                </button>
+            </div>
 
-                <!-- Drag & Drop / Photo Upload Zone -->
-                <div id="ai_drop_zone" class="dropzone-box">
-                    <div style="font-size: 2rem; margin-bottom: 4px;">📷</div>
-                    <div style="font-weight: 700; font-size: 1rem; color: var(--slate-900);">
-                        Snap or Upload Rough Slips / Cards
-                    </div>
-                    <div style="font-size: 0.82rem; color: var(--slate-500); margin-top: 2px;">
-                        Multiple images supported • Paste with Ctrl+V
-                    </div>
+            <!-- Image Attachments Strip -->
+            <div id="ai_thumbnail_container" class="thumbnails-strip" style="padding: 6px 16px; min-height: 0; background: #fff; border-bottom: 1px solid var(--slate-100); display: none;"></div>
 
-                    <div class="photo-buttons-row">
-                        <label class="btn-photo">
-                            <span>📷</span>
-                            <span>Take Photo</span>
-                            <input type="file" id="ai_camera_input" accept="image/*" capture="environment" style="display: none;" onchange="handleAiFileSelect(event)">
-                        </label>
-                        <label class="btn-choose">
-                            <span>📁</span>
-                            <span>Choose Photos</span>
-                            <input type="file" id="ai_file_input" accept="image/*" multiple style="display: none;" onchange="handleAiFileSelect(event)">
-                        </label>
-                    </div>
-
-                    <div id="ai_thumbnail_container" class="thumbnails-strip"></div>
-                </div>
-
-                <!-- Notes Input with Microphone Speech Recognition -->
-                <div style="margin-top: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                        <label class="field-label" for="ai_prompt_text" style="margin: 0;">Instructions / Voice Notes:</label>
-                        <button type="button" id="btn_mic_input" class="btn-mic" onclick="toggleVoiceInput()">
-                            <span id="mic_icon">🎙️</span>
-                            <span id="mic_label">Speak</span>
-                        </button>
-                    </div>
-                    <textarea id="ai_prompt_text" class="field-textarea" rows="2" placeholder="Tap Speak or type (e.g. Das Metal 2 bags utensils, Gaya transport)..."></textarea>
-                </div>
-
-                <!-- Primary Read Button -->
-                <div style="margin-top: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                    <button type="button" id="btn_analyze_slip" class="btn btn-ai-glow" style="padding: 12px 22px; font-size: 1rem;" onclick="analyzeSlipWithAi()">
-                        <span>✨</span>
-                        <span>Read Slip & Extract Details</span>
-                    </button>
-                    <div id="ai_status_spinner" style="display: none; font-size: 0.88rem; color: var(--primary); font-weight: 600;">
-                        ⏳ Analyzing slip... Please wait.
+            <!-- Chat Stream Area -->
+            <div id="ai_chat_stream" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; background: #f8fafc;">
+                <!-- Initial Greeting Bubble -->
+                <div class="ai-chat-bubble ai-bubble-assistant">
+                    <div class="ai-bubble-avatar">✨</div>
+                    <div class="ai-bubble-content">
+                        <div style="font-weight: 700; margin-bottom: 2px; color: var(--primary);">AI Billing Assistant</div>
+                        <div>Namaste! Snap a rough slip, choose a chit photo, or tap <strong>🎙️ Speak</strong> to dictate invoice details or create a new buyer profile.</div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Conversation Stream & Review -->
-                <div id="ai_chat_thread" class="assistant-chat-thread" style="display: none;">
-                    <div class="chat-bubble-assistant">
-                        <div class="chat-bubble-header">
-                            <span>💬 Assistant Review</span>
-                            <span id="ai_match_badge" class="pill-badge pill-online">Verified</span>
-                        </div>
+            <!-- Loading Indicator -->
+            <div id="ai_status_spinner" style="display: none; padding: 8px 16px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 600; text-align: center; border-top: 1px solid #c7d2fe; flex-shrink: 0;">
+                ⏳ Assistant is reading slip with Gemini Vision... Please wait.
+            </div>
 
-                        <div id="ai_conversational_text" style="font-size: 0.92rem; color: var(--slate-800); line-height: 1.45;"></div>
-
-                        <!-- Duplicate Invoice Alert -->
-                        <div id="ai_duplicate_alert" class="warning-callout" style="display: none;"></div>
-
-                        <!-- Clarification Questions -->
-                        <div id="ai_clarifications_box" class="clarification-list" style="display: none;">
-                            <strong>❓ Questions to verify:</strong>
-                            <ul id="ai_clarifications_list"></ul>
-                        </div>
-
-                        <!-- Extracted Data Preview Summary -->
-                        <div class="extracted-summary-box">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-weight: 600;">
-                                <span id="ai_res_buyer">Buyer Name</span>
-                                <span id="ai_res_transport">Transport</span>
-                            </div>
-                            <div id="ai_res_items_summary" style="color: var(--slate-600); margin-bottom: 6px;"></div>
-                            <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--slate-500); border-top: 1px dashed var(--slate-200); padding-top: 6px;">
-                                <span id="ai_res_tax">Tax: IGST</span>
-                                <span id="ai_res_delivery">Delivery: ₹0</span>
-                            </div>
-                        </div>
-
-                        <!-- Follow-up input for changes -->
-                        <div class="followup-bar">
-                            <input type="text" id="ai_followup_input" class="field-input" style="flex:1;" placeholder="Type a change (e.g. use invoice 058, rate is 405)..." onkeydown="if(event.key==='Enter') refineSlipWithAi()">
-                            <button type="button" class="btn btn-nav-outline" onclick="refineSlipWithAi()">Update</button>
-                        </div>
-                    </div>
-
-                    <!-- Apply Button -->
-                    <div style="text-align: right; margin-top: 8px;">
-                        <button type="button" class="btn btn-ai-glow" style="padding: 14px 26px; font-size: 1.05rem;" onclick="applyAiDataToForm()">
-                            <span>✨</span>
-                            <span>Fill Form with this Slip</span>
-                        </button>
-                    </div>
-                </div>
-
+            <!-- Bottom Composer Bar -->
+            <div class="ai-composer-bar" style="padding: 12px 16px; background: #ffffff; border-top: 1.5px solid var(--slate-200); display: flex; gap: 10px; align-items: center; flex-shrink: 0;">
+                <button type="button" id="btn_mic_input" class="btn-mic" onclick="toggleVoiceInput()" style="height: 46px; min-width: 46px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <span id="mic_icon">🎙️</span>
+                </button>
+                <input type="text" id="ai_prompt_text" class="field-input" style="flex: 1; height: 46px; font-size: 0.98rem; border-radius: 24px; padding: 0 16px;" placeholder="Speak or type (e.g. Das Metal 2 bags 89.5 kg @ 400)..." onkeydown="if(event.key==='Enter') submitAiMessage()">
+                <button type="button" id="btn_send_ai" class="btn btn-primary" style="height: 46px; border-radius: 24px; padding: 0 20px; font-weight: 700;" onclick="submitAiMessage()">
+                    Send
+                </button>
             </div>
         </div>
     </div>
@@ -2191,6 +2430,7 @@
                     </select>
                 </div>
 
+                <!-- Desktop Table View -->
                 <div class="records-table-wrap">
                     <table class="records-table">
                         <thead>
@@ -2207,6 +2447,11 @@
                             <!-- Populated dynamically -->
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile Cards View (Optimized for Dad / Moto G67 Power) -->
+                <div id="modal_invoices_cards_body" class="records-cards-wrap">
+                    <!-- Populated dynamically -->
                 </div>
             </div>
         </div>
@@ -2553,12 +2798,27 @@
             tr.id = `item_row_${itemRowIndex}`;
             tr.className = 'item-row';
 
-            const desc = data.description || 'Aluminium Utensils';
-            const bags = data.bags || '';
+            let desc = data.description || 'Aluminium Utensils';
+            let bags = data.bags || '';
+            let unit = data.unit || '';
+
+            // Clean up description if it already has packaging suffix or leading numbering
+            const packMatch = desc.match(/\(\s*([\d\.]+)\s*([A-Za-z]+)\s*\)/);
+            if (packMatch) {
+                if (!bags) bags = packMatch[1];
+                if (!unit) unit = packMatch[2];
+                desc = desc.replace(/\s*\(\s*[\d\.]+\s*[A-Za-z]+\s*\)/, '').trim();
+            }
+            desc = desc.replace(/^\d+\.\s*/, '').trim();
+
             const hsn = data.hsn || '76151030';
             const qty = data.quantity !== undefined ? data.quantity : '';
             const rate = data.rate !== undefined ? data.rate : '';
             const amt = (parseFloat(qty) || 0) * (parseFloat(rate) || 0);
+
+            if (!unit && (bags || qty)) {
+                unit = 'Bags';
+            }
 
             tr.innerHTML = `
                 <td style="text-align: center; font-weight: 600; color: var(--slate-400);" class="row-num">${itemRowIndex}</td>
@@ -2566,7 +2826,10 @@
                     <input type="text" name="item_description[]" class="item-input" value="${escapeHtml(desc)}" placeholder="Description of goods" required oninput="updatePreview()">
                 </td>
                 <td>
-                    <input type="text" name="item_bags[]" class="item-input" value="${escapeHtml(bags)}" placeholder="Bags" oninput="updatePreview()">
+                    <div style="display: flex; gap: 4px; align-items: center;">
+                        <input type="text" name="item_bags[]" class="item-input mono" value="${escapeHtml(bags)}" placeholder="Count" style="width: 52px; text-align: center;" oninput="handlePackagingInput(${itemRowIndex})">
+                        <input type="text" name="item_unit[]" class="item-input" list="packaging_units_list" value="${escapeHtml(unit)}" placeholder="Unit" style="width: 78px; text-align: center;" oninput="updatePreview()">
+                    </div>
                 </td>
                 <td>
                     <input type="text" name="item_hsn[]" class="item-input mono" value="${escapeHtml(hsn)}" placeholder="HSN" oninput="updatePreview()">
@@ -2609,10 +2872,27 @@
         function handleItemCalc(idx) {
             const row = document.getElementById(`item_row_${idx}`);
             if (!row) return;
-            const q = parseFloat(row.querySelector('input[name="item_quantity[]"]').value) || 0;
-            const r = parseFloat(row.querySelector('input[name="item_rate[]"]').value) || 0;
+            const qInput = row.querySelector('input[name="item_quantity[]"]');
+            const q = parseFloat(qInput?.value) || 0;
+            const r = parseFloat(row.querySelector('input[name="item_rate[]"]')?.value) || 0;
             const amtCell = document.getElementById(`row_amount_${idx}`);
             if (amtCell) amtCell.textContent = `₹${(q * r).toFixed(2)}`;
+
+            const unitInput = row.querySelector('input[name="item_unit[]"]');
+            if (unitInput && !unitInput.value.trim() && qInput && qInput.value.trim()) {
+                unitInput.value = 'Bags';
+            }
+            updatePreview();
+        }
+
+        function handlePackagingInput(idx) {
+            const row = document.getElementById(`item_row_${idx}`);
+            if (!row) return;
+            const bagsInput = row.querySelector('input[name="item_bags[]"]');
+            const unitInput = row.querySelector('input[name="item_unit[]"]');
+            if (unitInput && !unitInput.value.trim() && bagsInput && bagsInput.value.trim()) {
+                unitInput.value = 'Bags';
+            }
             updatePreview();
         }
 
@@ -2764,11 +3044,16 @@
             const itemsData = [];
 
             rows.forEach(r => {
-                const d = r.querySelector('input[name="item_description[]"]')?.value.trim() || 'Item';
+                let d = r.querySelector('input[name="item_description[]"]')?.value.trim() || 'Item';
+                const bags = r.querySelector('input[name="item_bags[]"]')?.value.trim() || '';
+                const unit = r.querySelector('input[name="item_unit[]"]')?.value.trim() || 'Bags';
                 const q = parseFloat(r.querySelector('input[name="item_quantity[]"]')?.value) || 0;
                 const rate = parseFloat(r.querySelector('input[name="item_rate[]"]')?.value) || 0;
                 const amt = q * rate;
                 if (q > 0 || rate > 0) {
+                    if (bags) {
+                        d += ` (${bags} ${unit})`;
+                    }
                     itemsData.push({ d, q, rate, amt });
                     subtotal += amt;
                 }
@@ -2918,13 +3203,25 @@
             speechRecognition.start();
         }
 
-        // ================= SMART SLIP ASSISTANT =================
+        // ================= SMART SLIP ASSISTANT (AGENTIC CHAT) =================
         function openAiModal() {
             document.getElementById('ai_modal').style.display = 'flex';
+            setTimeout(() => {
+                const el = document.getElementById('ai_prompt_text');
+                if (el) el.focus();
+            }, 100);
         }
 
         function closeAiModal() {
             document.getElementById('ai_modal').style.display = 'none';
+        }
+
+        function prefillAiPrompt(text) {
+            const el = document.getElementById('ai_prompt_text');
+            if (el) {
+                el.value = text;
+                el.focus();
+            }
         }
 
         async function handleAiFileSelect(event) {
@@ -2937,6 +3234,8 @@
             }
             renderAiThumbnails();
             event.target.value = '';
+            // Auto submit or prompt
+            submitAiMessage("I have uploaded rough slip / card photo(s). Please read them and extract all billing details.");
         }
 
         function removeAiImage(index) {
@@ -2946,6 +3245,12 @@
 
         function renderAiThumbnails() {
             const container = document.getElementById('ai_thumbnail_container');
+            if (uploadedAiImages.length === 0) {
+                container.style.display = 'none';
+                container.innerHTML = '';
+                return;
+            }
+            container.style.display = 'flex';
             container.innerHTML = uploadedAiImages.map((img, i) => `
                 <div class="thumbnail-card">
                     <img src="${img.data}" alt="${img.name}">
@@ -2987,20 +3292,32 @@
             });
         }
 
-        async function analyzeSlipWithAi(followupText = '') {
+        async function submitAiMessage(explicitText = '') {
             const promptEl = document.getElementById('ai_prompt_text');
-            const promptVal = (promptEl ? promptEl.value : '').trim();
-            const textToSend = followupText || promptVal;
+            const userText = explicitText || (promptEl ? promptEl.value.trim() : '');
+            if (!userText && uploadedAiImages.length === 0) return;
 
-            if (uploadedAiImages.length === 0 && !textToSend && !lastExtractedAiData) {
-                alert('Please upload a photo of the slip or speak notes.');
-                return;
-            }
+            if (promptEl) promptEl.value = '';
 
-            const btn = document.getElementById('btn_analyze_slip');
+            const stream = document.getElementById('ai_chat_stream');
+
+            // Render User Bubble
+            const userBubble = document.createElement('div');
+            userBubble.className = 'ai-chat-bubble ai-bubble-user';
+            userBubble.innerHTML = `
+                <div class="ai-bubble-avatar">👤</div>
+                <div class="ai-bubble-content">
+                    ${uploadedAiImages.length > 0 ? `<div style="font-size: 0.8rem; opacity: 0.9;">📷 Attached ${uploadedAiImages.length} image(s)</div>` : ''}
+                    <div>${escapeHtml(userText)}</div>
+                </div>
+            `;
+            stream.appendChild(userBubble);
+            stream.scrollTop = stream.scrollHeight;
+
             const spinner = document.getElementById('ai_status_spinner');
-            btn.disabled = true;
-            spinner.style.display = 'inline-block';
+            const sendBtn = document.getElementById('btn_send_ai');
+            if (spinner) spinner.style.display = 'block';
+            if (sendBtn) sendBtn.disabled = true;
 
             try {
                 const response = await fetch('/api/ai/parse-bill', {
@@ -3008,7 +3325,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         images: uploadedAiImages,
-                        prompt: textToSend,
+                        prompt: userText,
                         history: aiConversationHistory,
                         current_draft: lastExtractedAiData
                     })
@@ -3016,69 +3333,153 @@
 
                 const res = await response.json();
                 if (!response.ok || !res.success) {
-                    throw new Error(res.error || 'Failed to read slip');
+                    throw new Error(res.error || 'Failed to process request');
                 }
 
                 lastExtractedAiData = res.data;
-                aiConversationHistory.push({ role: 'user', text: textToSend || 'Examined slips' });
+                aiConversationHistory.push({ role: 'user', text: userText });
                 aiConversationHistory.push({ role: 'model', text: res.conversational_message });
 
                 renderAiAssistantThread(res);
 
             } catch (err) {
                 console.error(err);
-                alert('Error processing slip: ' + err.message);
+                const errBubble = document.createElement('div');
+                errBubble.className = 'ai-chat-bubble ai-bubble-assistant';
+                errBubble.innerHTML = `
+                    <div class="ai-bubble-avatar" style="background:#ef4444;">⚠️</div>
+                    <div class="ai-bubble-content" style="border-color:#fca5a5; background:#fff1f2; color:#991b1b;">
+                        <div><strong>Error:</strong> ${escapeHtml(err.message)}</div>
+                    </div>
+                `;
+                stream.appendChild(errBubble);
+                stream.scrollTop = stream.scrollHeight;
             } finally {
-                btn.disabled = false;
-                spinner.style.display = 'none';
+                if (spinner) spinner.style.display = 'none';
+                if (sendBtn) sendBtn.disabled = false;
             }
         }
 
-        function refineSlipWithAi() {
-            const input = document.getElementById('ai_followup_input');
-            const val = input.value.trim();
-            if (!val) return;
-            input.value = '';
-            analyzeSlipWithAi(val);
+        async function saveNewBuyerFromAi(btnEl, buyerData) {
+            try {
+                btnEl.disabled = true;
+                btnEl.innerHTML = '⏳ Saving to Google Sheets...';
+                const resp = await fetch('/api/ai/create-buyer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(buyerData)
+                });
+                const res = await resp.json();
+                if (!resp.ok || !res.success) {
+                    throw new Error(res.error || 'Failed to save buyer');
+                }
+                btnEl.innerHTML = '✓ Saved to Directory';
+                btnEl.style.background = '#dcfce7';
+                btnEl.style.color = '#15803d';
+                btnEl.style.boxShadow = 'none';
+
+                if (res.buyer) {
+                    if (!buyerProfiles.some(b => b.profile_id === res.buyer.profile_id)) {
+                        buyerProfiles.push(res.buyer);
+                    }
+                    if (lastExtractedAiData) {
+                        lastExtractedAiData.created_profile = res.buyer;
+                        lastExtractedAiData.matched_profile_id = res.buyer.profile_id;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to save buyer:', err);
+                alert('Could not save buyer: ' + err.message);
+                btnEl.disabled = false;
+                btnEl.innerHTML = '💾 Save New Buyer to Directory';
+            }
         }
 
         function renderAiAssistantThread(res) {
-            const thread = document.getElementById('ai_chat_thread');
-            thread.style.display = 'flex';
-
-            document.getElementById('ai_conversational_text').textContent = res.conversational_message || 'Slip details analyzed.';
-
-            // Duplicate warning
-            const dupAlert = document.getElementById('ai_duplicate_alert');
-            if (res.is_duplicate_invoice && res.duplicate_warning) {
-                dupAlert.style.display = 'block';
-                dupAlert.innerHTML = `⚠️ <strong>Note:</strong> ${res.duplicate_warning}`;
-            } else {
-                dupAlert.style.display = 'none';
-            }
-
-            // Clarifications
-            const clarBox = document.getElementById('ai_clarifications_box');
-            const clarList = document.getElementById('ai_clarifications_list');
-            if (res.has_clarifications && res.clarifications && res.clarifications.length > 0) {
-                clarBox.style.display = 'block';
-                clarList.innerHTML = res.clarifications.map(c => `<li>${escapeHtml(c)}</li>`).join('');
-            } else {
-                clarBox.style.display = 'none';
-            }
-
-            // Summary
+            const stream = document.getElementById('ai_chat_stream');
             const d = res.data || {};
-            document.getElementById('ai_res_buyer').textContent = d.buyer_name ? `🏢 ${d.buyer_name}` : 'Party Not Identified';
-            document.getElementById('ai_res_transport').textContent = d.transport_mode ? `🚚 ${d.transport_mode}` : '🚚 By Road';
-            document.getElementById('ai_res_tax').textContent = `Tax: ${d.tax_type || 'IGST'}`;
-            document.getElementById('ai_res_delivery').textContent = `Delivery: ₹${d.delivery_charge || 0}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = 'ai-chat-bubble ai-bubble-assistant';
+
+            const isNew = d.is_new_buyer || (!d.matched_profile_id && d.buyer_name);
+            const partyStatusHtml = isNew ? `
+                <div class="ai-party-card ai-party-new">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #854d0e;">✨ New Buyer Profile Detected</span>
+                        <span style="font-size: 0.8rem; background: #fef08a; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Unsaved</span>
+                    </div>
+                    <div style="font-weight: 800; font-size: 1.05rem; color: #713f12;">${escapeHtml(d.buyer_name || 'New Party')}</div>
+                    <div style="font-size: 0.82rem; color: #854d0e;">
+                        GSTIN: <strong>${escapeHtml(d.gstin || 'None')}</strong> • State: <strong>${escapeHtml(d.state || '')} (${escapeHtml(d.state_code || '')})</strong>
+                    </div>
+                    <button type="button" class="btn-ai-save-buyer" onclick='saveNewBuyerFromAi(this, ${JSON.stringify(d).replace(/'/g, "&#39;")})'>
+                        💾 Save New Buyer to Directory
+                    </button>
+                </div>
+            ` : `
+                <div class="ai-party-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 700; color: #166534;">✓ Matched Saved Party</span>
+                        <span style="font-size: 0.8rem; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Verified</span>
+                    </div>
+                    <div style="font-weight: 800; font-size: 1.05rem; color: #14532d;">${escapeHtml(d.buyer_name || '-')}</div>
+                </div>
+            `;
 
             const items = d.items || [];
-            const itemSummaries = items.map(it => `${it.description || 'Utensils'}: ${it.quantity || 0} kg @ ₹${it.rate || 0}`);
-            document.getElementById('ai_res_items_summary').textContent = itemSummaries.length > 0 ? itemSummaries.join(' | ') : 'No items';
+            let itemsRows = items.map((it, idx) => {
+                const amt = (parseFloat(it.quantity) || 0) * (parseFloat(it.rate) || 0);
+                const bagsTxt = it.bags ? `<span style="background:var(--slate-100); padding:2px 6px; border-radius:6px; font-size:0.8rem; margin-left:6px;">${escapeHtml(it.bags)} ${escapeHtml(it.unit || 'Bags')}</span>` : '';
+                return `
+                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--slate-100); font-size: 0.88rem;">
+                        <span><strong>${idx + 1}.</strong> ${escapeHtml(it.description || 'Utensils')}${bagsTxt}</span>
+                        <span>${it.quantity || 0} kg @ ₹${it.rate || 0} = <strong>₹${amt.toFixed(2)}</strong></span>
+                    </div>
+                `;
+            }).join('');
 
-            thread.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const clarHtml = (res.has_clarifications && res.clarifications && res.clarifications.length > 0) ? `
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px; margin-top: 4px;">
+                    <div style="font-weight: 700; color: #1d4ed8; margin-bottom: 4px; font-size: 0.88rem;">❓ Tap to answer or verify:</div>
+                    ${res.clarifications.map(c => `<button type="button" class="ai-clarification-chip" onclick="submitAiMessage('${escapeHtml(c).replace(/'/g, "\\'")}')">${escapeHtml(c)}</button>`).join('')}
+                </div>
+            ` : '';
+
+            const dupHtml = (res.is_duplicate_invoice && res.duplicate_warning) ? `
+                <div style="background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; font-weight: 600;">
+                    ⚠️ ${escapeHtml(res.duplicate_warning)}
+                </div>
+            ` : '';
+
+            bubble.innerHTML = `
+                <div class="ai-bubble-avatar">✨</div>
+                <div class="ai-bubble-content" style="width: 100%;">
+                    <div>${escapeHtml(res.conversational_message || 'I have extracted the invoice details.')}</div>
+                    ${dupHtml}
+                    ${partyStatusHtml}
+                    <div class="ai-breakdown-card">
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--slate-700); font-size: 0.85rem; border-bottom: 1px solid var(--slate-200); padding-bottom: 4px;">
+                            <span>📦 Goods & Items (${items.length})</span>
+                            <span>🚚 ${escapeHtml(d.transport_mode || 'By Road')}</span>
+                        </div>
+                        <div style="margin: 4px 0;">${itemsRows}</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--slate-600); border-top: 1px dashed var(--slate-200); padding-top: 4px;">
+                            <span>Tax: <strong>${escapeHtml(d.tax_type || 'IGST')}</strong></span>
+                            <span>Delivery: ₹${d.delivery_charge || 0}</span>
+                        </div>
+                    </div>
+                    ${clarHtml}
+                    <div style="margin-top: 6px;">
+                        <button type="button" class="btn-ai-autofill" onclick="applyAiDataToForm()">
+                            <span>⚡ Fill Invoice Form</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            stream.appendChild(bubble);
+            stream.scrollTop = stream.scrollHeight;
         }
 
         function applyAiDataToForm() {
@@ -3127,6 +3528,10 @@
             updatePreview();
             closeAiModal();
 
+            if (window.innerWidth <= 900) {
+                switchMobileView('form');
+            }
+
             setTimeout(() => {
                 alert('✓ Form filled from slip! You can inspect or change anything on screen before generating.');
             }, 250);
@@ -3148,6 +3553,15 @@
 
             let list = [...recentInvoices];
 
+            // Deduplicate by invoice_number
+            const seen = new Set();
+            list = list.filter(inv => {
+                const k = (inv.invoice_number || '').trim();
+                if (!k || seen.has(k)) return false;
+                seen.add(k);
+                return true;
+            });
+
             if (query) {
                 list = list.filter(inv => {
                     const num = (inv.invoice_number || '').toLowerCase();
@@ -3167,32 +3581,67 @@
             });
 
             const tbody = document.getElementById('modal_invoices_table_body');
+            const cardsContainer = document.getElementById('modal_invoices_cards_body');
+
             if (list.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--slate-400); padding: 24px;">No invoices found</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--slate-400); padding: 24px;">No invoices found</td></tr>';
+                if (cardsContainer) cardsContainer.innerHTML = '<div style="text-align: center; color: var(--slate-400); padding: 24px;">No invoices found</div>';
                 return;
             }
 
-            tbody.innerHTML = list.map(inv => {
-                const total = parseFloat(inv.total_amount) || 0;
-                const safeNum = encodeURIComponent(inv.invoice_number || '');
-                const xlsxUrl = `/download_xlsx/${safeNum}`;
-                const pdfUrl = `/download_pdf/${safeNum}`;
+            // Desktop Table Rows
+            if (tbody) {
+                tbody.innerHTML = list.map(inv => {
+                    const total = parseFloat(inv.total_amount) || 0;
+                    const safeNum = encodeURIComponent(inv.invoice_number || '');
+                    const xlsxUrl = `/download_xlsx/${safeNum}`;
+                    const pdfUrl = `/download_pdf/${safeNum}`;
 
-                return `
-                    <tr>
-                        <td style="font-weight: 700; font-family: 'JetBrains Mono', monospace;">${escapeHtml(inv.invoice_number)}</td>
-                        <td>${escapeHtml(inv.invoice_date || '-')}</td>
-                        <td style="font-weight: 500;">${escapeHtml(inv.buyer_name || '-')}</td>
-                        <td>${escapeHtml(inv.transport_mode || '-')}</td>
-                        <td style="text-align: right; font-weight: 600; font-family: 'JetBrains Mono', monospace;">₹${total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
-                        <td style="text-align: center; white-space: nowrap;">
-                            <a href="${pdfUrl}" class="btn-inline-pill" style="text-decoration:none;" title="Download PDF">PDF</a>
-                            <a href="${xlsxUrl}" class="btn-inline-pill" style="text-decoration:none;" title="Download Excel">Excel</a>
-                            <button type="button" class="btn-inline-pill" onclick="loadPastInvoice('${escapeHtml(inv.invoice_number)}')">Edit</button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                    return `
+                        <tr>
+                            <td style="font-weight: 700; font-family: 'JetBrains Mono', monospace;">${escapeHtml(inv.invoice_number)}</td>
+                            <td>${escapeHtml(inv.invoice_date || '-')}</td>
+                            <td style="font-weight: 500;">${escapeHtml(inv.buyer_name || '-')}</td>
+                            <td>${escapeHtml(inv.transport_mode || '-')}</td>
+                            <td style="text-align: right; font-weight: 600; font-family: 'JetBrains Mono', monospace;">₹${total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                            <td style="text-align: center; white-space: nowrap;">
+                                <a href="${pdfUrl}" class="btn-inline-pill" style="text-decoration:none;" title="Download PDF">PDF</a>
+                                <a href="${xlsxUrl}" class="btn-inline-pill" style="text-decoration:none;" title="Download Excel">Excel</a>
+                                <button type="button" class="btn-inline-pill" onclick="loadPastInvoice('${escapeHtml(inv.invoice_number)}')">Edit</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Mobile Cards View (Optimized for Dad / Moto G67 Power)
+            if (cardsContainer) {
+                cardsContainer.innerHTML = list.map(inv => {
+                    const total = parseFloat(inv.total_amount) || 0;
+                    const safeNum = encodeURIComponent(inv.invoice_number || '');
+                    const xlsxUrl = `/download_xlsx/${safeNum}`;
+                    const pdfUrl = `/download_pdf/${safeNum}`;
+
+                    return `
+                        <div class="invoice-mobile-card">
+                            <div class="invoice-card-header">
+                                <span class="invoice-card-number"># ${escapeHtml(inv.invoice_number)}</span>
+                                <span class="invoice-card-date">${escapeHtml(inv.invoice_date || '-')}</span>
+                            </div>
+                            <div class="invoice-card-buyer">${escapeHtml(inv.buyer_name || 'Party Name')}</div>
+                            <div class="invoice-card-meta">
+                                <span>🚚 ${escapeHtml(inv.transport_mode || 'By Road')}</span>
+                                <span class="invoice-card-total">₹${total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            <div class="invoice-card-actions">
+                                <a href="${pdfUrl}" class="btn-card-action btn-card-pdf">📄 PDF</a>
+                                <a href="${xlsxUrl}" class="btn-card-action btn-card-excel">📊 Excel</a>
+                                <button type="button" class="btn-card-action btn-card-edit" onclick="loadPastInvoice('${escapeHtml(inv.invoice_number)}')">✏️ Edit & Load</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
         }
 
         async function loadPastInvoice(invNum) {
@@ -3336,7 +3785,6 @@
                 addItemRow();
             }
 
-            updateTotals();
             updatePreview();
         }
 

@@ -87,7 +87,7 @@ class GoogleSheetsDB:
     def get_all_buyers(self) -> List[Dict]:
         """Get all buyer profiles with caching and fallback."""
         now = time.time()
-        if 'buyers' in self._cache and (now - self._cache_time.get('buyers', 0)) < 60:
+        if 'buyers' in self._cache and (now - self._cache_time.get('buyers', 0)) < 300:
             return list(self._cache['buyers'])
 
         try:
@@ -143,6 +143,7 @@ class GoogleSheetsDB:
     
     def save_buyer(self, buyer: Dict) -> bool:
         """Save or update a buyer profile."""
+        self._cache.pop('buyers', None)
         sheet = self._get_or_create_sheet('Buyers', self.BUYER_HEADERS)
         
         # Prepare data
@@ -357,7 +358,7 @@ class GoogleSheetsDB:
     def get_all_invoices(self, limit: Optional[int] = 100) -> List[Dict]:
         """Get recent invoices with caching and fallback."""
         now = time.time()
-        if 'invoices' in self._cache and (now - self._cache_time.get('invoices', 0)) < 10:
+        if 'invoices' in self._cache and (now - self._cache_time.get('invoices', 0)) < 120:
             records = list(self._cache['invoices'])
             if limit is None or limit <= 0:
                 return records

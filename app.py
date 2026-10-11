@@ -531,6 +531,7 @@ def generate_invoice():
         items = []
         item_descriptions = request.form.getlist('item_description[]')
         item_bags = request.form.getlist('item_bags[]')
+        item_units = request.form.getlist('item_unit[]')
         item_hsns = request.form.getlist('item_hsn[]')
         item_quantities = request.form.getlist('item_quantity[]')
         item_rates = request.form.getlist('item_rate[]')
@@ -539,22 +540,27 @@ def generate_invoice():
             for i in range(len(item_descriptions)):
                 desc = item_descriptions[i].strip() if i < len(item_descriptions) else ''
                 bags = item_bags[i].strip() if i < len(item_bags) else ''
+                unit_val = item_units[i].strip() if i < len(item_units) and item_units[i].strip() else 'Bags'
                 hsn = item_hsns[i].strip() if i < len(item_hsns) else ''
                 qty = float(item_quantities[i]) if i < len(item_quantities) and item_quantities[i] else 0
                 rt = float(item_rates[i]) if i < len(item_rates) and item_rates[i] else 0
                 
                 if desc or qty or rt:
+                    clean_bag = re.sub(r'(?i)\s*(?:bags?|bundles?|boxes?|pkts?|cartons?)', '', bags).strip()
+                    desc = re.sub(r'\s*\(\s*[\d\.]+\s*(?:[A-Za-z]+|\s*)+\)', '', desc, flags=re.IGNORECASE).strip()
                     full_desc = desc
-                    if bags:
+                    if clean_bag:
                         try:
-                            bags_int = int(float(bags))
-                            if bags_int > 0:
-                                full_desc += f" ({bags_int} Bags)"
+                            bags_num = float(clean_bag)
+                            bags_str = f"{int(bags_num)}" if bags_num.is_integer() else f"{bags_num}"
+                            full_desc += f" ({bags_str} {unit_val})"
                         except ValueError:
-                            full_desc += f" ({bags} Bags)"
+                            full_desc += f" ({clean_bag} {unit_val})"
                     
                     items.append({
                         'description': full_desc,
+                        'bags': clean_bag,
+                        'unit': unit_val,
                         'hsn': hsn,
                         'quantity': qty,
                         'rate': rt
@@ -794,6 +800,38 @@ def api_ai_parse_bill_local():
         return api_ai_parse_bill()
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI parse error: {e}'}), 500
+
+
+@app.route('/api/ai/create-buyer', methods=['POST'])
+def api_ai_create_buyer_local():
+    """Delegate AI buyer creation to cloud module implementation if available."""
+    try:
+        from cloud.app_cloud import api_ai_create_buyer
+        return api_ai_create_buyer()
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'AI create buyer error: {e}'}), 500
+
+
+@app.route('/download/xlsx/<path:filename>')
+@app.route('/download_xlsx/<path:filename>')
+def download_xlsx(filename):
+    """Download an Excel invoice."""
+    try:
+        from cloud.app_cloud import download_xlsx as dl_x
+        return dl_x(filename)
+    except Exception as e:
+        return redirect(url_for('index'))
+
+
+@app.route('/download/pdf/<path:filename>')
+@app.route('/download_pdf/<path:filename>')
+def download_pdf(filename):
+    """Download a PDF invoice."""
+    try:
+        from cloud.app_cloud import download_pdf as dl_p
+        return dl_p(filename)
+    except Exception as e:
+        return redirect(url_for('index'))
 
 
 # ===================== PROFILE MANAGEMENT =====================
