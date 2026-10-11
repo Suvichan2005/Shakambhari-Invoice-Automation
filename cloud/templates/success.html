@@ -222,7 +222,7 @@
             <a href="{{ url_for('index') }}?load={{ invoice_number }}" class="btn btn-warning">
                 ✏️ Back to Modify
             </a>
-            <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+            <a href="{{ url_for('index') }}#records" class="btn btn-secondary">
                 📂 View Old Invoices
             </a>
         </div>
@@ -231,6 +231,51 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             try {
+                const pendingStr = sessionStorage.getItem('pending_invoices');
+                if (pendingStr !== null) {
+                    const pending = JSON.parse(pendingStr);
+                    if (Array.isArray(pending) && pending.length > 0) {
+                        const nextBill = pending[0];
+                        const infoStr = sessionStorage.getItem('queue_current_bill_info');
+                        const info = infoStr ? JSON.parse(infoStr) : {};
+                        const nextNum = (info.currentNum || 1) + 1;
+                        const totalNum = info.totalNum || (pending.length + 1);
+                        const nextBuyer = nextBill.buyer_name || `Bill #${nextNum}`;
+
+                        const card = document.getElementById('next_bill_queue_card');
+                        if (card) {
+                            card.style.display = 'block';
+                            document.getElementById('next_bill_counter').textContent = `Bill ${nextNum} of ${totalNum}`;
+                            document.getElementById('next_bill_buyer_name').textContent = nextBuyer;
+                            document.getElementById('btn_buyer_name_label').textContent = `${nextBuyer} (Bill ${nextNum} of ${totalNum})`;
+                            document.getElementById('btn_continue_next_bill').onclick = () => {
+                                const remaining = pending.slice(1);
+                                sessionStorage.setItem('pending_invoices', JSON.stringify(remaining));
+                                sessionStorage.setItem('queue_current_bill_info', JSON.stringify({
+                                    currentNum: nextNum,
+                                    totalNum: totalNum,
+                                    currentBuyer: nextBuyer,
+                                    nextBuyer: (remaining[0] && remaining[0].buyer_name) || ''
+                                }));
+                                sessionStorage.setItem('auto_fill_invoice', JSON.stringify(nextBill));
+                                window.location.href = "{{ url_for('index') }}";
+                            };
+                        }
+                        return;
+                    } else {
+                        // Queue completed!
+                        sessionStorage.removeItem('pending_invoices');
+                        sessionStorage.removeItem('pending_bills_queue');
+                        sessionStorage.removeItem('current_bill_index');
+                        sessionStorage.removeItem('queue_current_bill_info');
+                        sessionStorage.removeItem('auto_fill_invoice');
+                        const card = document.getElementById('next_bill_queue_card');
+                        if (card) card.style.display = 'none';
+                        return;
+                    }
+                }
+
+                // Fallback for pending_bills_queue
                 const queueStr = sessionStorage.getItem('pending_bills_queue');
                 const curIdxStr = sessionStorage.getItem('current_bill_index');
                 if (queueStr && curIdxStr !== null) {
@@ -244,21 +289,28 @@
                             card.style.display = 'block';
                             const bName = nextBill.buyer_name || `Bill #${nextIdx + 1}`;
                             document.getElementById('next_bill_buyer_name').textContent = bName;
-                            document.getElementById('btn_buyer_name_label').textContent = bName;
+                            document.getElementById('btn_buyer_name_label').textContent = `${bName} (Bill ${nextIdx + 1} of ${queue.length})`;
                             document.getElementById('next_bill_counter').textContent = `Bill ${nextIdx + 1} of ${queue.length}`;
                             document.getElementById('btn_continue_next_bill').onclick = () => {
                                 sessionStorage.setItem('current_bill_index', nextIdx.toString());
-                                window.location.href = "{{ url_for('index') }}?from_queue=1";
+                                sessionStorage.setItem('auto_fill_invoice', JSON.stringify(nextBill));
+                                window.location.href = "{{ url_for('index') }}";
                             };
                         }
-                    } else {
-                        // All bills completed in queue!
-                        sessionStorage.removeItem('pending_bills_queue');
-                        sessionStorage.removeItem('current_bill_index');
+                        return;
                     }
                 }
+
+                // Queue finished or none
+                sessionStorage.removeItem('pending_invoices');
+                sessionStorage.removeItem('pending_bills_queue');
+                sessionStorage.removeItem('current_bill_index');
+                sessionStorage.removeItem('queue_current_bill_info');
+                sessionStorage.removeItem('auto_fill_invoice');
+                const card = document.getElementById('next_bill_queue_card');
+                if (card) card.style.display = 'none';
             } catch (e) {
-                console.error(e);
+                console.error('Queue handler error:', e);
             }
         });
     </script>

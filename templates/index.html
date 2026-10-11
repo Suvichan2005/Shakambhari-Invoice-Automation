@@ -2121,6 +2121,36 @@
             .records-cards-wrap {
                 display: flex !important;
             }
+            .modal-overlay {
+                padding: 0 !important;
+            }
+            .modal-window {
+                width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
+                max-height: 100vh !important;
+                border-radius: 0 !important;
+            }
+            .ai-chat-bubble {
+                max-width: 100% !important;
+            }
+            .ai-bubble-avatar {
+                width: 30px !important;
+                height: 30px !important;
+                font-size: 0.9rem !important;
+            }
+            .ai-bill-card-top {
+                flex-direction: column;
+                gap: 6px;
+            }
+            .btn-bill-listen {
+                align-self: flex-start;
+            }
+            .ai-bill-summary-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
         }
 
         /* Modern Agentic AI Chat Styles */
@@ -2150,8 +2180,11 @@
         .ai-chat-bubble {
             display: flex;
             gap: 10px;
-            max-width: 90%;
+            max-width: 95%;
             animation: fadeIn 0.25s ease-out;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
         }
         .ai-bubble-user {
             align-self: flex-end;
@@ -2159,6 +2192,8 @@
         }
         .ai-bubble-assistant {
             align-self: flex-start;
+            max-width: 100%;
+            width: 100%;
         }
         .ai-bubble-avatar {
             width: 34px;
@@ -2188,6 +2223,12 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            box-sizing: border-box;
+            max-width: 100%;
+            width: 100%;
+            overflow-x: hidden;
         }
         .ai-bubble-user .ai-bubble-content {
             background: #4f46e5;
@@ -2235,20 +2276,37 @@
             flex-direction: column;
             gap: 6px;
         }
-        .ai-clarification-chip {
-            display: inline-block;
+        .ai-clarification-container {
             background: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #bfdbfe;
-            padding: 5px 10px;
-            border-radius: 16px;
-            font-size: 0.82rem;
-            font-weight: 600;
-            cursor: pointer;
-            margin: 3px 4px 3px 0;
+            border: 1.5px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-top: 8px;
+            box-sizing: border-box;
+            width: 100%;
         }
-        .ai-clarification-chip:hover {
-            background: #dbeafe;
+        .ai-clarification-header {
+            font-weight: 700;
+            color: #1d4ed8;
+            margin-bottom: 6px;
+            font-size: 0.92rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ai-clarification-item {
+            color: #1e3a8a;
+            font-size: 0.9rem;
+            line-height: 1.45;
+            margin-bottom: 4px;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+        .ai-clarification-hint {
+            color: #64748b;
+            font-size: 0.82rem;
+            margin-top: 6px;
+            font-style: italic;
         }
         .btn-ai-autofill {
             display: flex;
@@ -2748,9 +2806,6 @@
                 </button>
             </div>
 
-            <!-- Image Attachments Strip -->
-            <div id="ai_thumbnail_container" class="thumbnails-strip" style="padding: 6px 16px; min-height: 0; background: #fff; border-bottom: 1px solid var(--slate-100); display: none;"></div>
-
             <!-- Chat Stream Area -->
             <div id="ai_chat_stream" style="flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; background: #f8fafc;">
                 <!-- Initial Greeting Bubble -->
@@ -2762,6 +2817,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Staged Attachments Preview Strip -->
+            <div id="ai_thumbnail_container" class="thumbnails-strip" style="display: none;"></div>
 
             <!-- Loading Indicator -->
             <div id="ai_status_spinner" style="display: none; padding: 10px 16px; background: #eef2ff; color: #4338ca; font-size: 0.92rem; font-weight: 700; text-align: center; border-top: 1px solid #c7d2fe; flex-shrink: 0;">
@@ -3649,8 +3707,13 @@
             }
             renderAiThumbnails();
             event.target.value = '';
-            // Auto submit or prompt
-            submitAiMessage("I have uploaded rough slip / card photo(s). Please read them and extract all billing details.");
+
+            // Stage photo for review and adding notes; do NOT auto-submit!
+            const promptEl = document.getElementById('ai_prompt_text');
+            if (promptEl) {
+                promptEl.placeholder = "Add notes (optional) or tap Send ➡️";
+                promptEl.focus();
+            }
         }
 
         function removeAiImage(index) {
@@ -3660,18 +3723,31 @@
 
         function renderAiThumbnails() {
             const container = document.getElementById('ai_thumbnail_container');
+            if (!container) return;
             if (uploadedAiImages.length === 0) {
                 container.style.display = 'none';
                 container.innerHTML = '';
+                const promptEl = document.getElementById('ai_prompt_text');
+                if (promptEl) {
+                    promptEl.placeholder = "Speak or type (e.g. Das Metal 2 bags 89.5 kg @ 400)...";
+                }
                 return;
             }
             container.style.display = 'flex';
-            container.innerHTML = uploadedAiImages.map((img, i) => `
-                <div class="thumbnail-card">
-                    <img src="${img.data}" alt="${img.name}">
-                    <button type="button" class="thumbnail-delete" onclick="removeAiImage(${i})">✕</button>
+            container.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 4px;">
+                    <span style="font-weight: 700; font-size: 0.85rem; color: #4338ca;">📎 Attached Photo(s): ${uploadedAiImages.length}</span>
+                    <span style="font-size: 0.78rem; color: #64748b;">Tap ✕ to remove • Type notes or tap Send</span>
                 </div>
-            `).join('');
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    ${uploadedAiImages.map((img, i) => `
+                        <div class="thumbnail-card">
+                            <img src="${img.data}" alt="${img.name || 'Photo'}">
+                            <button type="button" class="thumbnail-delete" onclick="removeAiImage(${i})" title="Remove photo">✕</button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
         }
 
         function resizeImage(file, maxDimension = 1500, quality = 0.85) {
@@ -3709,20 +3785,43 @@
 
         async function submitAiMessage(explicitText = '') {
             const promptEl = document.getElementById('ai_prompt_text');
-            const userText = explicitText || (promptEl ? promptEl.value.trim() : '');
+            let userText = explicitText || (promptEl ? promptEl.value.trim() : '');
+
+            // If user did not type text, but has staged photos, provide clean prompt
+            if (!userText && uploadedAiImages.length > 0) {
+                userText = "I have uploaded rough slip / card photo(s). Please read them and extract all billing details.";
+            }
+
             if (!userText && uploadedAiImages.length === 0) return;
 
-            if (promptEl) promptEl.value = '';
+            // Copy images to send and IMMEDIATELY clear the staging array
+            const imagesToSend = [...uploadedAiImages];
+            uploadedAiImages = [];
+            renderAiThumbnails();
+
+            if (promptEl) {
+                promptEl.value = '';
+                promptEl.placeholder = "Speak or type (e.g. Das Metal 2 bags 89.5 kg @ 400)...";
+            }
 
             const stream = document.getElementById('ai_chat_stream');
 
-            // Render User Bubble
+            // Render User Bubble with image thumbnails if images were attached
             const userBubble = document.createElement('div');
             userBubble.className = 'ai-chat-bubble ai-bubble-user';
+            let thumbsHtml = '';
+            if (imagesToSend.length > 0) {
+                thumbsHtml = `
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px;">
+                        ${imagesToSend.map(img => `<img src="${img.data}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.4);" alt="Slip">`).join('')}
+                    </div>
+                    <div style="font-size: 0.8rem; opacity: 0.9; margin-bottom: 4px;">📷 Attached ${imagesToSend.length} image(s)</div>
+                `;
+            }
             userBubble.innerHTML = `
                 <div class="ai-bubble-avatar">👤</div>
                 <div class="ai-bubble-content">
-                    ${uploadedAiImages.length > 0 ? `<div style="font-size: 0.8rem; opacity: 0.9;">📷 Attached ${uploadedAiImages.length} image(s)</div>` : ''}
+                    ${thumbsHtml}
                     <div>${escapeHtml(userText)}</div>
                 </div>
             `;
@@ -3739,7 +3838,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        images: uploadedAiImages,
+                        images: imagesToSend,
                         prompt: userText,
                         history: aiConversationHistory,
                         current_draft: lastExtractedAiData
@@ -3811,35 +3910,48 @@
             }
         }
 
+        function renderAiMessageBubble(res) {
+            return renderAiAssistantThread(res);
+        }
+        window.renderAiMessageBubble = renderAiMessageBubble;
+        window.renderAiAssistantThread = renderAiAssistantThread;
+
         function renderAiAssistantThread(res) {
             const stream = document.getElementById('ai_chat_stream');
-            const invoices = (res.invoices && res.invoices.length > 0) ? res.invoices : (res.data ? [res.data] : []);
-            lastExtractedInvoices = invoices;
-            if (invoices.length > 0) {
-                lastExtractedAiData = invoices[0];
-            }
+            const rawList = (res.invoices && res.invoices.length > 0) ? res.invoices : (res.data ? [res.data] : []);
+            const validInvoices = rawList.filter(inv => {
+                if (!inv || typeof inv !== 'object') return false;
+                const b = (inv.buyer_name || '').trim();
+                const isRealBuyer = b && !['unnamed party', 'unknown', 'none', 'n/a', ''].includes(b.toLowerCase());
+                const items = inv.items || [];
+                const hasRealItems = items.some(it => (parseFloat(it.quantity) || 0) > 0 || (parseFloat(it.rate) || 0) > 0 || (it.description && it.description.trim()));
+                return isRealBuyer || hasRealItems;
+            });
+
+            lastExtractedInvoices = validInvoices;
+            lastExtractedAiData = validInvoices.length > 0 ? validInvoices[0] : null;
 
             const bubble = document.createElement('div');
             bubble.className = 'ai-chat-bubble ai-bubble-assistant';
 
-            const msgText = res.conversational_message || (invoices.length > 1 ? `Found ${invoices.length} bills from your chit.` : 'Found bill details from your slip.');
+            const msgText = res.conversational_message || (validInvoices.length > 1 ? `Found ${validInvoices.length} bills from your chit.` : (validInvoices.length === 1 ? 'Found bill details from your slip.' : 'No billing details found.'));
 
             let batchBarHtml = '';
-            if (invoices.length > 1) {
+            if (validInvoices.length > 1) {
                 batchBarHtml = `
                     <div class="ai-batch-action-bar">
                         <div style="font-size: 0.95rem; font-weight: 700; color: #1e1b4b;">
-                            ⚡ Found ${invoices.length} Bills on this Chit
+                            ⚡ Found ${validInvoices.length} Bills on this Chit
                         </div>
                         <button type="button" id="btn_generate_all_batch" class="btn-generate-all" onclick="generateAllBillsBatch()">
-                            <span>🚀 Generate All (${invoices.length} Bills at Once)</span>
+                            <span>🚀 Generate All (${validInvoices.length} Bills)</span>
                         </button>
                     </div>
                 `;
             }
 
             let invoicesHtml = '';
-            invoices.forEach((inv, idx) => {
+            validInvoices.forEach((inv, idx) => {
                 const isNew = inv.is_new_buyer || (!inv.matched_profile_id && inv.buyer_name);
                 const items = inv.items || [];
                 let itemsSubtotal = 0;
@@ -3860,14 +3972,14 @@
                 let taxRate = 0.05;
                 let totalWithTax = itemsSubtotal * (1 + taxRate) + (parseFloat(inv.delivery_charge) || 0);
 
-                const fillButtonText = invoices.length > 1 ? `👉 Fill Bill #${idx + 1} (${escapeHtml(inv.buyer_name || 'Party')})` : `👉 Fill This Bill into Form`;
+                const fillButtonText = validInvoices.length > 1 ? `👉 Fill Bill #${idx + 1} (${escapeHtml(inv.buyer_name || 'Party')})` : `👉 Fill This Bill into Form`;
 
                 invoicesHtml += `
                     <div class="ai-bill-card">
                         <div class="ai-bill-card-top">
                             <div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span class="ai-bill-badge">${invoices.length > 1 ? `Bill #${idx + 1}` : 'Bill'}</span>
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                    <span class="ai-bill-badge">${validInvoices.length > 1 ? `Bill #${idx + 1}` : 'Bill'}</span>
                                     <span class="ai-bill-inv-num">#${escapeHtml(inv.invoice_number || '')}</span>
                                     ${isNew ? '<span class="ai-bill-status-new">✨ New Party</span>' : '<span class="ai-bill-status-saved">✓ Saved Party</span>'}
                                 </div>
@@ -3907,10 +4019,26 @@
                 `;
             });
 
+            let noBillPromptHtml = '';
+            if (validInvoices.length === 0) {
+                noBillPromptHtml = `
+                    <div style="background: #f8fafc; border: 1.5px dashed var(--slate-300); border-radius: 12px; padding: 14px; text-align: center; margin-top: 8px;">
+                        <div style="font-size: 1.6rem; margin-bottom: 4px;">📝</div>
+                        <div style="font-weight: 700; color: var(--slate-700); font-size: 0.95rem;">No Billing Details Found</div>
+                        <div style="font-size: 0.85rem; color: var(--slate-500); margin-top: 2px;">
+                            Please take a photo of your paper chit, weight slip, or visiting card using the buttons above.
+                        </div>
+                    </div>
+                `;
+            }
+
             const clarHtml = (res.has_clarifications && res.clarifications && res.clarifications.length > 0) ? `
-                <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 12px; margin-top: 8px;">
-                    <div style="font-weight: 700; color: #1d4ed8; margin-bottom: 6px; font-size: 0.9rem;">❓ Clarifications:</div>
-                    ${res.clarifications.map(c => `<button type="button" class="ai-clarification-chip" onclick="submitAiMessage('${escapeHtml(c).replace(/'/g, "\\'")}')">${escapeHtml(c)}</button>`).join('')}
+                <div class="ai-clarification-container">
+                    <div class="ai-clarification-header">❓ Question from Assistant:</div>
+                    ${res.clarifications.map(c => `
+                        <div class="ai-clarification-item">• ${escapeHtml(c)}</div>
+                    `).join('')}
+                    <div class="ai-clarification-hint">💡 Type your answer below or tap 🎙️ to answer</div>
                 </div>
             ` : '';
 
@@ -3932,12 +4060,117 @@
                     ${dupHtml}
                     ${batchBarHtml}
                     ${invoicesHtml}
+                    ${noBillPromptHtml}
                     ${clarHtml}
                 </div>
             `;
 
             stream.appendChild(bubble);
             stream.scrollTop = stream.scrollHeight;
+        }
+
+        function loadInvoiceObjectIntoForm(d) {
+            if (!d) return;
+
+            // 1. Invoice Number & Date
+            if (d.invoice_number) document.getElementById('invoice_number').value = d.invoice_number;
+            if (d.invoice_date) {
+                let dStr = String(d.invoice_date).trim();
+                if (/^\d{2}\/\d{2}\/\d{4}$/.test(dStr)) {
+                    const parts = dStr.split('/');
+                    dStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                }
+                document.getElementById('invoice_date').value = dStr;
+            }
+
+            // 2. Buyer Profile Lookup or Ad-Hoc Creation
+            let buyerFound = false;
+            if (d.matched_profile_id) {
+                buyerFound = selectBuyer(d.matched_profile_id);
+            }
+            if (!buyerFound && d.created_profile) {
+                if (!buyerProfiles.some(b => b.profile_id === d.created_profile.profile_id)) {
+                    buyerProfiles.push(d.created_profile);
+                }
+                buyerFound = selectBuyer(d.created_profile.profile_id);
+            }
+            if (!buyerFound && d.buyer_name) {
+                const norm = normalizeName(d.buyer_name);
+                const matched = buyerProfiles.find(b => normalizeName(b.buyer_name).includes(norm) || norm.includes(normalizeName(b.buyer_name)));
+                if (matched) {
+                    buyerFound = selectBuyer(matched.profile_id);
+                }
+            }
+            if (!buyerFound && d.buyer_name) {
+                const adhoc = {
+                    profile_id: 'adhoc_' + Date.now(),
+                    buyer_name: d.buyer_name.trim(),
+                    buyer_details: d.buyer_details || [d.buyer_name.trim()],
+                    gstin: d.buyer_gstin || d.gstin || '',
+                    state: d.buyer_state || d.state || 'West Bengal',
+                    state_code: d.buyer_state_code || d.state_code || '19',
+                    default_tax_type: d.tax_type || 'IGST'
+                };
+                buyerProfiles.push(adhoc);
+                selectBuyer(adhoc.profile_id);
+                try {
+                    fetch('/api/ai/create-buyer', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(adhoc)
+                    }).catch(() => {});
+                } catch (e) {}
+            }
+
+            // 3. Transport Mode
+            if (d.transport_mode) {
+                const tm = document.getElementById('transport_mode_input');
+                if (tm) tm.value = d.transport_mode;
+            }
+
+            // 4. Delivery Charge
+            if (d.delivery_charge !== undefined && d.delivery_charge !== null) {
+                document.getElementById('delivery_charge').value = parseFloat(d.delivery_charge) || 0;
+            }
+
+            // 5. Tax Type
+            if (d.tax_type) {
+                selectTaxMode(d.tax_type);
+            }
+
+            // 6. Dispatch Origin (Ship From)
+            if (d.dispatch_from) {
+                const sfCb = document.getElementById('ship_from_enabled');
+                if (sfCb) sfCb.checked = true;
+                toggleShipFromSection(true);
+                document.getElementById('ship_from').value = d.dispatch_from;
+            }
+
+            // 7. E-Waybill
+            if (d.ewaybill_number) {
+                const ewCb = document.getElementById('ewaybill_toggle');
+                if (ewCb) ewCb.checked = true;
+                handleEwaybillToggle(true);
+                document.getElementById('ewaybill_number').value = d.ewaybill_number;
+                if (d.ewaybill_date) document.getElementById('ewaybill_date').value = d.ewaybill_date;
+            }
+
+            // 8. Items
+            const items = d.items || [];
+            if (items.length > 0) {
+                document.getElementById('items_container').innerHTML = '';
+                itemRowIndex = 0;
+                items.forEach(it => addItemRow(it));
+            }
+
+            updatePreview();
+
+            if (window.innerWidth <= 900) {
+                switchMobileView('form');
+            }
+
+            const formCol = document.getElementById('mobile_form_col');
+            if (formCol) formCol.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
         function applyInvoiceToForm(idx = 0, updateQueue = true) {
@@ -3947,61 +4180,21 @@
             lastExtractedAiData = d;
 
             if (updateQueue && invoices.length > 1) {
+                const otherBills = invoices.filter((_, i) => i !== idx);
+                sessionStorage.setItem('pending_invoices', JSON.stringify(otherBills));
                 sessionStorage.setItem('pending_bills_queue', JSON.stringify(invoices));
                 sessionStorage.setItem('current_bill_index', idx.toString());
-                showQueueBanner(idx, invoices);
+                sessionStorage.setItem('queue_current_bill_info', JSON.stringify({
+                    currentNum: idx + 1,
+                    totalNum: invoices.length,
+                    currentBuyer: d.buyer_name || 'Party',
+                    nextBuyer: (otherBills[0] && otherBills[0].buyer_name) || 'Next Bill'
+                }));
+                showSequentialQueueBanner(idx + 1, invoices.length, d.buyer_name || 'Party', (otherBills[0] && otherBills[0].buyer_name) || '');
             }
 
-            if (d.invoice_number) document.getElementById('invoice_number').value = d.invoice_number;
-            if (d.invoice_date) document.getElementById('invoice_date').value = d.invoice_date;
-
-            if (d.created_profile) {
-                if (!buyerProfiles.some(b => b.profile_id === d.created_profile.profile_id)) {
-                    buyerProfiles.push(d.created_profile);
-                }
-                selectBuyer(d.created_profile.profile_id);
-            } else if (d.matched_profile_id) {
-                selectBuyer(d.matched_profile_id);
-            } else if (d.buyer_name) {
-                const norm = normalizeName(d.buyer_name);
-                const matched = buyerProfiles.find(b => normalizeName(b.buyer_name).includes(norm) || norm.includes(normalizeName(b.buyer_name)));
-                if (matched) selectBuyer(matched.profile_id);
-            }
-
-            if (d.transport_mode) document.getElementById('transport_mode_input').value = d.transport_mode;
-            if (d.delivery_charge !== undefined) document.getElementById('delivery_charge').value = parseFloat(d.delivery_charge) || 0;
-            if (d.tax_type) selectTaxMode(d.tax_type);
-
-            if (d.dispatch_from) {
-                document.getElementById('ship_from_enabled').checked = true;
-                toggleShipFromSection(true);
-                document.getElementById('ship_from').value = d.dispatch_from;
-            }
-
-            if (d.ewaybill_number) {
-                document.getElementById('ewaybill_toggle').checked = true;
-                handleEwaybillToggle(true);
-                document.getElementById('ewaybill_number').value = d.ewaybill_number;
-                if (d.ewaybill_date) document.getElementById('ewaybill_date').value = d.ewaybill_date;
-            }
-
-            const items = d.items || [];
-            if (items.length > 0) {
-                document.getElementById('items_container').innerHTML = '';
-                itemRowIndex = 0;
-                items.forEach(it => addItemRow(it));
-            }
-
-            updatePreview();
+            loadInvoiceObjectIntoForm(d);
             closeAiModal();
-
-            if (window.innerWidth <= 900) {
-                switchMobileView('form');
-            }
-
-            const formCol = document.getElementById('mobile_form_col');
-            if (formCol) formCol.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
             showBannerNotification(`✓ Bill #${idx + 1} (${d.buyer_name || 'Party'}) loaded! Review and tap Generate Bill.`);
         }
 
@@ -4149,22 +4342,34 @@
 
         function checkQueueOnPageLoad() {
             try {
-                const queueStr = sessionStorage.getItem('pending_bills_queue');
-                const curIdxStr = sessionStorage.getItem('current_bill_index');
-                if (queueStr && curIdxStr !== null) {
-                    const queue = JSON.parse(queueStr);
-                    const curIdx = parseInt(curIdxStr, 10);
-                    if (queue && queue[curIdx]) {
-                        applyInvoiceToForm(curIdx, false);
-                        showQueueBanner(curIdx, queue);
+                const autoFillStr = sessionStorage.getItem('auto_fill_invoice');
+                if (autoFillStr) {
+                    const nextBill = JSON.parse(autoFillStr);
+                    sessionStorage.removeItem('auto_fill_invoice');
+                    if (nextBill) {
+                        loadInvoiceObjectIntoForm(nextBill);
+                        const infoStr = sessionStorage.getItem('queue_current_bill_info');
+                        if (infoStr) {
+                            const info = JSON.parse(infoStr);
+                            showSequentialQueueBanner(info.currentNum, info.totalNum, nextBill.buyer_name || 'Party', info.nextBuyer);
+                        }
+                        showBannerNotification(`✓ Bill (${nextBill.buyer_name || 'Party'}) loaded from chit queue! Review and tap Generate Bill.`);
+                        return;
                     }
+                }
+
+                const pendingStr = sessionStorage.getItem('pending_invoices');
+                const infoStr = sessionStorage.getItem('queue_current_bill_info');
+                if (pendingStr && infoStr) {
+                    const info = JSON.parse(infoStr);
+                    showSequentialQueueBanner(info.currentNum, info.totalNum, info.currentBuyer, info.nextBuyer);
                 }
             } catch (e) {
                 console.error('Queue check error:', e);
             }
         }
 
-        function showQueueBanner(curIdx, queue) {
+        function showSequentialQueueBanner(curNum, totalNum, curBuyer, nextBuyer) {
             let banner = document.getElementById('queue_status_banner');
             if (!banner) {
                 banner = document.createElement('div');
@@ -4173,17 +4378,15 @@
                 const formCol = document.getElementById('mobile_form_col');
                 if (formCol) formCol.insertBefore(banner, formCol.firstChild);
             }
-            const isLast = (curIdx + 1 >= queue.length);
-            const curBill = queue[curIdx];
-            const nextBill = queue[curIdx + 1];
+            const isLast = (curNum >= totalNum);
             banner.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                     <div>
-                        <span style="background: #4f46e5; color: white; padding: 3px 10px; border-radius: 12px; font-weight: 800; font-size: 0.85rem; margin-right: 6px;">Bill ${curIdx + 1} of ${queue.length}</span>
-                        <strong style="color: #1e1b4b; font-size: 1.1rem;">${escapeHtml(curBill.buyer_name || 'Party')}</strong>
-                        ${!isLast ? `<span style="color: #4338ca; font-size: 0.9rem; margin-left: 8px;">(Next up: ${escapeHtml(nextBill.buyer_name || 'Next Bill')})</span>` : '<span style="color: #15803d; font-size: 0.9rem; margin-left: 8px; font-weight: 700;">(Final bill on chit)</span>'}
+                        <span style="background: #4f46e5; color: white; padding: 4px 12px; border-radius: 12px; font-weight: 800; font-size: 0.9rem; margin-right: 8px;">Bill ${curNum} of ${totalNum}</span>
+                        <strong style="color: #1e1b4b; font-size: 1.15rem;">${escapeHtml(curBuyer || 'Party')}</strong>
+                        ${!isLast ? `<span style="color: #4338ca; font-size: 0.95rem; margin-left: 8px; font-weight: 600;">(Next up: ${escapeHtml(nextBuyer || 'Next Bill')})</span>` : '<span style="color: #15803d; font-size: 0.95rem; margin-left: 8px; font-weight: 700;">(Final bill on chit)</span>'}
                     </div>
-                    <button type="button" onclick="clearBillQueue()" style="background: transparent; border: none; color: #64748b; font-size: 0.82rem; text-decoration: underline; cursor: pointer;">
+                    <button type="button" onclick="clearBillQueue()" style="background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 5px 12px; border-radius: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer;">
                         Cancel Queue
                     </button>
                 </div>
@@ -4191,11 +4394,19 @@
             banner.style.display = 'block';
         }
 
+        function showQueueBanner(curIdx, queue) {
+            showSequentialQueueBanner(curIdx + 1, queue.length, queue[curIdx]?.buyer_name || 'Party', queue[curIdx + 1]?.buyer_name || 'Next Bill');
+        }
+
         function clearBillQueue() {
+            sessionStorage.removeItem('pending_invoices');
             sessionStorage.removeItem('pending_bills_queue');
             sessionStorage.removeItem('current_bill_index');
+            sessionStorage.removeItem('queue_current_bill_info');
+            sessionStorage.removeItem('auto_fill_invoice');
             const banner = document.getElementById('queue_status_banner');
             if (banner) banner.style.display = 'none';
+            showBannerNotification('Chit bill queue cleared.');
         }
 
         window.addEventListener('DOMContentLoaded', () => {

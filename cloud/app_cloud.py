@@ -2329,7 +2329,12 @@ def api_ai_parse_bill():
         f"{json.dumps(existing_invoices_sample[:80], ensure_ascii=False)}\n\n"
         f"5. SUGGESTED NEXT SEQUENTIAL INVOICE NUMBER: {suggested_inv}\n\n"
         "=== CRITICAL INSTRUCTIONS ===\n"
-        "1. TONE AND EXPLANATION (NO TECHNICAL JARGON):\n"
+        "1. IRRELEVANT IMAGES / NON-BILLS:\n"
+        "   - If the uploaded photo or note is NOT a sales bill, order chit, weight slip, or party document (for example: study notes, homework, random text, non-business photos):\n"
+        "     * You MUST set 'invoices': [] and 'data': null.\n"
+        "     * Set 'has_clarifications': false, 'clarifications': [].\n"
+        "     * In 'conversational_message', clearly and politely state that no sales details or party items were found, explain what was seen, and kindly ask for a handwritten slip or order chit.\n\n"
+        "2. TONE AND EXPLANATION (NO TECHNICAL JARGON):\n"
         "   - Use clear, respectful everyday English as if speaking to an experienced 55-year-old business owner.\n"
         "   - NEVER use technical jargon like 'multimodal', 'payload', 'grounding', 'override', 'JSON schema', or 'regex'.\n"
         "   - Clearly state which bills were found, party names, bag counts, weights in kg, and rates.\n\n"
@@ -2455,14 +2460,16 @@ def api_ai_parse_bill():
                         raise
 
                 raw_invoices = parsed_response.get('invoices')
-                if not raw_invoices or not isinstance(raw_invoices, list):
-                    single_val = parsed_response.get('data') or parsed_response
+                if raw_invoices is None:
+                    single_val = parsed_response.get('data')
                     if isinstance(single_val, list):
                         raw_invoices = single_val
-                    elif isinstance(single_val, dict):
+                    elif isinstance(single_val, dict) and (single_val.get('buyer_name') or single_val.get('items')):
                         raw_invoices = [single_val]
                     else:
                         raw_invoices = []
+                elif not isinstance(raw_invoices, list):
+                    raw_invoices = []
 
                 today_ist = get_ist_today_str()
                 parsed_invoices = []
@@ -2470,6 +2477,19 @@ def api_ai_parse_bill():
                 for idx, inv in enumerate(raw_invoices):
                     if not isinstance(inv, dict):
                         continue
+
+                    b_name = (inv.get('buyer_name') or '').strip()
+                    raw_items = inv.get('items') or []
+                    has_real_buyer = bool(b_name and b_name.lower() not in ('unnamed party', 'unknown', 'none', 'n/a', 'null', ''))
+                    has_real_items = any(
+                        (float(it.get('quantity') or 0) > 0 or float(it.get('rate') or 0) > 0 or (it.get('description') and it.get('description').strip()))
+                        for it in raw_items if isinstance(it, dict)
+                    ) if isinstance(raw_items, list) else False
+
+                    # Skip empty dummy bill if neither a real party nor items exist
+                    if not has_real_buyer and not has_real_items:
+                        continue
+
                     inv_data = dict(inv)
                     if not inv_data.get('invoice_date'):
                         inv_data['invoice_date'] = today_ist
@@ -2524,7 +2544,7 @@ def api_ai_parse_bill():
                     inv_data['items'] = norm_items
                     parsed_invoices.append(inv_data)
 
-                primary_invoice = parsed_invoices[0] if parsed_invoices else {}
+                primary_invoice = parsed_invoices[0] if parsed_invoices else None
 
                 return jsonify({
                     'success': True,

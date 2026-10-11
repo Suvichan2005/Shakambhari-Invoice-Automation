@@ -237,5 +237,100 @@ class BatchGenerationEdgeCaseTests(unittest.TestCase):
         self.assertIn("No items specified", data['errors'][0])
 
 
+class NonBillAndAttachmentIntegrityTests(unittest.TestCase):
+    def setUp(self):
+        flask_app.config['TESTING'] = True
+        self.client = flask_app.test_client()
+
+    def test_irrelevant_notes_returns_empty_invoices(self):
+        """When Gemini detects study notes and returns empty invoices, backend returns empty invoices without dummy bill."""
+        from unittest.mock import patch, MagicMock
+        import io
+
+        mock_gemini_resp = {
+            "conversational_message": "The uploaded photo appears to be handwritten study notes on computer networking rather than a rough billing slip. No utensil items or buyer details found.",
+            "has_clarifications": False,
+            "clarifications": [],
+            "is_duplicate_invoice": False,
+            "invoices": [],
+            "data": None
+        }
+
+        mock_http_resp = MagicMock()
+        mock_http_resp.read.return_value = json.dumps({
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": json.dumps(mock_gemini_resp)}]
+                }
+            }]
+        }).encode('utf-8')
+        mock_http_resp.__enter__.return_value = mock_http_resp
+
+        with patch('urllib.request.urlopen', return_value=mock_http_resp):
+            response = self.client.post('/api/ai/parse-bill', json={
+                'prompt': 'Here are study notes',
+                'api_key': 'fake-test-key'
+            })
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertTrue(data['success'])
+            self.assertEqual(data['invoices'], [], "Invoices must be empty for study notes")
+            self.assertIsNone(data['data'], "Primary data must be None when no invoices found")
+            self.assertIn("study notes", data['conversational_message'].lower())
+
+    def test_filter_removes_unnamed_party_skeleton(self):
+        """Even if model returns a skeleton Unnamed Party with 0 items, backend filters it out."""
+        from unittest.mock import patch, MagicMock
+
+        mock_gemini_resp = {
+            "conversational_message": "Could not identify billing details.",
+            "has_clarifications": False,
+            "clarifications": [],
+            "invoices": [
+                {
+                    "buyer_name": "Unnamed Party",
+                    "items": [],
+                    "total": 0.0
+                }
+            ]
+        }
+
+        mock_http_resp = MagicMock()
+        mock_http_resp.read.return_value = json.dumps({
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": json.dumps(mock_gemini_resp)}]
+                }
+            }]
+        }).encode('utf-8')
+        mock_http_resp.__enter__.return_value = mock_http_resp
+
+        with patch('urllib.request.urlopen', return_value=mock_http_resp):
+            response = self.client.post('/api/ai/parse-bill', json={
+                'prompt': 'Empty slip',
+                'api_key': 'fake-test-key'
+            })
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertTrue(data['success'])
+            self.assertEqual(data['invoices'], [], "Empty skeleton invoice must be filtered out")
+            self.assertIsNone(data['data'])
+
+    def test_template_staging_and_no_auto_submit(self):
+        """Verify that index.html does not auto-submit on file select and does not turn clarifications into submit buttons."""
+        with open('templates/index.html', 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        # handleAiFileSelect must not call submitAiMessage directly
+        file_select_fn = content[content.find('function handleAiFileSelect'):content.find('function removeAiImage')]
+        self.assertNotIn('submitAiMessage', file_select_fn, "handleAiFileSelect must NOT auto-submit")
+
+        # Clarifications must not be clickable buttons that submitAiMessage
+        self.assertNotIn("class=\"ai-clarification-chip\" onclick=\"submitAiMessage", content)
+
+
 if __name__ == '__main__':
+    import json
     unittest.main()
+else:
+    import json
