@@ -2,224 +2,331 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice</title>
+    <title>Invoice {{ invoice.invoice_number }}</title>
     <style>
+        @page { size: A4; margin: 10mm; }
+
         body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            font-size: 10px;
-            color: #333;
-            margin: 0;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            color: #000;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .sheet {
+            border: 1px solid #000;
+            width: 100%;
             padding: 0;
         }
-        .invoice-box {
-            width: 100%;
-            max-width: 800px;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #eee;
-            box-shadow: 0 0 10px rgba(0, 0, 0, .15);
-            font-size: 10px; /* Reduced base font size */
-            line-height: 1.4; /* Adjusted line height */
-            color: #555;
+
+        .top-title {
+            text-align: center;
+            font-weight: 700;
+            border-bottom: 1px solid #000;
+            padding: 2px 0;
+            font-size: 12px;
         }
-        .invoice-box table {
+
+        .meta-grid {
             width: 100%;
-            line-height: inherit;
-            text-align: left;
             border-collapse: collapse;
         }
-        .invoice-box table td {
-            padding: 5px;
+
+        .meta-grid td {
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
+            vertical-align: top;
+            padding: 4px;
+            height: 72px;
+        }
+
+        .meta-grid td:last-child { border-right: none; }
+
+        .meta-grid .seller,
+        .meta-grid .buyer {
+            width: 42%;
+        }
+
+        .meta-grid .invoice-no,
+        .meta-grid .transport {
+            width: 31%;
+        }
+
+        .meta-grid .date,
+        .meta-grid .blank {
+            width: 27%;
+        }
+
+        .label { font-weight: 700; }
+        .line { line-height: 1.3; }
+
+        .items {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .items th,
+        .items td {
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 4px 6px;
+            vertical-align: top;
+            font-size: 11.5px;
+        }
+
+        .items th:last-child,
+        .items td:last-child { border-right: none; }
+
+        .num { text-align: right; white-space: nowrap; }
+        .center { text-align: center; }
+
+        .desc-col { width: 55%; }
+        .qty-col { width: 10%; }
+        .rate-col { width: 10%; }
+        .hsn-col { width: 10%; }
+        .amt-col { width: 15%; }
+
+        .totals-wrap {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .totals-wrap td {
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 2px 4px;
             vertical-align: top;
         }
-        .invoice-box table tr td:nth-child(2) {
-            text-align: right;
+
+        .totals-wrap td:last-child { border-right: none; }
+
+        .left-pad { width: 53%; }
+        .totals-label { width: 24%; text-align: right; }
+        .totals-rate { width: 11%; text-align: right; }
+        .totals-amount { width: 12%; text-align: right; }
+
+        .amount-words {
+            border-bottom: 1px solid #000;
+            padding: 4px;
+            min-height: 22px;
         }
-        .invoice-box table tr.top table td {
-            padding-bottom: 15px;
-        }
-        .invoice-box table tr.top table td.title {
-            font-size: 30px; /* Reduced title font size */
-            line-height: 1;
-            color: #333;
-        }
-        .invoice-box table tr.information table td {
-            padding-bottom: 20px;
-        }
-        .invoice-box table tr.heading td {
-            background: #eee;
-            border-bottom: 1px solid #ddd;
-            font-weight: bold;
-            text-align: left;
-        }
-        .invoice-box table tr.heading td.align-right {
-            text-align: right;
-        }
-        .invoice-box table tr.details td {
-            padding-bottom: 15px;
-            text-align: left;
-        }
-        .invoice-box table tr.item td {
-            border-bottom: 1px solid #eee;
-            text-align: left;
-        }
-        .invoice-box table tr.item.last td {
-            border-bottom: none;
-        }
-        .invoice-box table tr.item td.align-right,
-        .invoice-box table tr.total td.align-right {
-            text-align: right;
-        }
-        .invoice-box table tr.total td:nth-child(2) {
-            border-top: 2px solid #eee;
-            font-weight: bold;
-            text-align: right;
-        }
-        .text-right { text-align: right; }
-        .text-left { text-align: left; }
-        .text-center { text-align: center; }
-        .company-details, .buyer-details {
-            font-size: 9px; /* Smaller font for addresses */
-        }
-        .company-details p, .buyer-details p {
-            margin: 0;
-            line-height: 1.3;
-        }
+
         .footer {
-            margin-top: 30px;
-            font-size: 8px; /* Smaller font for footer */
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .footer td {
+            border-right: 1px solid #000;
+            padding: 6px 4px;
+            vertical-align: top;
+            height: 86px;
+        }
+
+        .footer td:last-child { border-right: none; }
+        .bank { width: 60%; }
+        .sign { width: 40%; text-align: center; }
+        .subject {
             text-align: center;
-        }
-        .amounts-table td {
-             text-align: right !important; /* Ensure all monetary values are right-aligned */
-        }
-        .amounts-table .label {
-            text-align: left !important;
+            border-top: 1px solid #000;
+            padding: 2px;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <div class="invoice-box">
-        <table cellpadding="0" cellspacing="0">
-            <tr class="top">
-                <td colspan="2">
-                    <table>
-                        <tr>
-                            <td class="title">
-                                <!-- You can add a logo here if you have one -->
-                                Shakambhari Enterprises
-                            </td>
-                            <td>
-                                <strong>{{ invoice_number_display if invoice_number_display else 'INVOICE' }}</strong><br>
-                                {{ invoice_date_display if invoice_date_display else 'N/A' }}<br>
-                            </td>
-                        </tr>
-                    </table>
+    {% set tm = (invoice.transport_mode or '').strip() %}
+    {% if tm and tm.lower().startswith('mode of transport') %}
+        {% set transport_display = tm %}
+    {% elif tm %}
+        {% set transport_display = 'Mode of Transport: ' ~ tm %}
+    {% else %}
+        {% set transport_display = '' %}
+    {% endif %}
+
+    <div class="sheet">
+        <div class="top-title">GST INVOICE</div>
+
+        <table class="meta-grid">
+            <tr>
+                <td class="seller">
+                    <div class="line"><span class="label">Seller :</span></div>
+                    <div class="line">{{ app_settings.company_name if app_settings else 'Shakambhari Enterprises' }}</div>
+                    <div class="line">{{ app_settings.company_address if app_settings else '123, Sample Industrial Area, Kolkata - 700001' }}</div>
+                    <div class="line">G.S.T No : {{ app_settings.company_gstin if app_settings else '19AAAAA0000A1Z5' }}</div>
                 </td>
-            </tr>
-            <tr class="information">
-                <td colspan="2">
-                    <table>
-                        <tr>
-                            <td class="company-details">
-                                <!-- Add your company's details here -->
-                                <strong>Shakambhari Enterprises</strong><br>
-                                Your Company Address Line 1<br>
-                                Your Company Address Line 2<br>
-                                City, State, PIN<br>
-                                GSTIN: YOUR_COMPANY_GSTIN<br>
-                                Phone: Your Phone<br>
-                                Email: Your Email
-                            </td>
-                            <td class="buyer-details">
-                                <strong>Buyer:</strong><br>
-                                {% if buyer_name %}
-                                    <strong>{{ buyer_name }}</strong><br>
-                                {% endif %}
-                                {% for detail_line in buyer_details_list %}
-                                    {{ detail_line }}<br>
-                                {% endfor %}
-                                {% if buyer_gstin %}
-                                    GSTIN: {{ buyer_gstin }}<br>
-                                {% endif %}
-                                {% if buyer_state_code %}
-                                    State Code: {{ buyer_state_code }}
-                                {% endif %}
-                            </td>
-                        </tr>
-                    </table>
+                <td class="invoice-no">
+                    <div class="line"><span class="label">INVOICE No.</span> {{ invoice.invoice_number }}</div>
+                    <div class="line" style="margin-top:6px;"><span class="label">Ewaybill No.</span> {{ invoice.ewaybill_number or '' }}</div>
+                </td>
+                <td class="date">
+                    <div class="line"><span class="label">Date :</span> {{ invoice.invoice_date_display }}</div>
+                    <div class="line" style="margin-top:6px;"><span class="label">Ewaybill Date :</span> {{ invoice.ewaybill_date_display or '' }}</div>
                 </td>
             </tr>
             <tr>
-                <td colspan="2">
-                    <strong>Mode of Transport:</strong> {{ mode_of_transport if mode_of_transport else 'N/A' }}
+                <td class="buyer">
+                    <div class="line"><span class="label">Buyer :</span></div>
+                    {% for detail in invoice.buyer_details %}
+                        {% if detail.strip() and detail.strip().lower() != 'buyer :' %}
+                            <div class="line">{{ detail }}</div>
+                        {% endif %}
+                    {% endfor %}
+                    {% if invoice.buyer_gstin %}
+                        <div class="line">GST: {{ invoice.buyer_gstin }}</div>
+                    {% endif %}
                 </td>
-            </tr>
-            <tr class="heading">
-                <td style="width:60%;">Item Description</td>
-                <td class="align-right">Quantity</td>
-                <td class="align-right">Rate</td>
-                <td class="align-right">Amount</td>
-            </tr>
-            <tr class="item">
-                <td>{{ item_description if item_description else 'N/A' }}</td>
-                <td class="align-right">{{ "%.3f"|format(quantity if quantity else 0) }}</td>
-                <td class="align-right">{{ "%.2f"|format(rate if rate else 0) }}</td>
-                <td class="align-right">{{ "%.2f"|format(item_amount if item_amount else 0) }}</td>
-            </tr>
-            <!-- Totals Section -->
-            <tr class="total">
-                <td colspan="3" class="text-right">Subtotal:</td>
-                <td class="text-right">{{ "%.2f"|format(subtotal if subtotal else 0) }}</td>
-            </tr>
-            {% if delivery_charge is not none and delivery_charge > 0 %}
-            <tr class="total">
-                <td colspan="3" class="text-right">Delivery Charge:</td>
-                <td class="text-right">{{ "%.2f"|format(delivery_charge) }}</td>
-            </tr>
-            {% endif %}
-            {% if tax_type == "IGST" and igst_amount is not none and igst_amount > 0 %}
-            <tr class="total">
-                <td colspan="3" class="text-right">IGST (5%):</td>
-                <td class="text-right">{{ "%.2f"|format(igst_amount) }}</td>
-            </tr>
-            {% endif %}
-            {% if tax_type == "CGST_SGST" %}
-            {% if cgst_amount is not none and cgst_amount > 0 %}
-            <tr class="total">
-                <td colspan="3" class="text-right">CGST (2.5%):</td>
-                <td class="text-right">{{ "%.2f"|format(cgst_amount) }}</td>
-            </tr>
-            {% endif %}
-            {% if sgst_amount is not none and sgst_amount > 0 %}
-            <tr class="total">
-                <td colspan="3" class="text-right">SGST (2.5%):</td>
-                <td class="text-right">{{ "%.2f"|format(sgst_amount) }}</td>
-            </tr>
-            {% endif %}
-            {% endif %}
-            {% if round_off_value is not none and round_off_value != 0 %}
-            <tr class="total">
-                <td colspan="3" class="text-right">Round Off:</td>
-                <td class="text-right">{{ "%.2f"|format(round_off_value) }}</td>
-            </tr>
-            {% endif %}
-            <tr class="total">
-                <td colspan="3" class="text-right"><strong>TOTAL:</strong></td>
-                <td class="text-right"><strong>{{ "%.2f"|format(rounded_total if rounded_total else 0) }}</strong></td>
-            </tr>
-            <tr>
-                <td colspan="4" style="padding-top: 15px;">
-                    <strong>Amount in Words:</strong> {{ amount_in_words if amount_in_words else 'N/A' }}
+                <td class="transport" colspan="2">
+                    <div class="line" style="margin-top: 26px;">{{ transport_display }}</div>
                 </td>
             </tr>
         </table>
-        <div class="footer">
-            <p>This is a computer-generated invoice.</p>
-            <!-- Add any other footer information like bank details, terms and conditions -->
-            <p>Bank Details: YOUR_BANK_NAME, Account No: YOUR_ACCOUNT_NO, IFSC: YOUR_IFSC</p>
-            <p>Terms & Conditions: ...</p>
+
+        <table class="meta-grid" style="margin-top: 8px; border: none;">
+            <tr>
+                <td class="seller" style="border: none; width: 50%; vertical-align: top;">
+                    <div class="line"><span class="label">Ship From :</span></div>
+                    {% if invoice.ship_from_details %}
+                        {% for line in invoice.ship_from_details %}
+                            <div class="line">{{ line }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="line">-</div>
+                    {% endif %}
+                </td>
+                <td class="transport" style="border: none; width: 50%; vertical-align: top;">
+                    <div class="line"><span class="label">Ship To :</span></div>
+                    {% if invoice.ship_to_enabled and invoice.ship_to_details %}
+                        {% for line in invoice.ship_to_details %}
+                            <div class="line">{{ line }}</div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="line">-</div>
+                    {% endif %}
+                    <div class="line" style="margin-top: 10px;"><span class="label">Ewaybill No. :</span> {{ invoice.ewaybill_number or '-' }}</div>
+                    <div class="line"><span class="label">Ewaybill Date :</span> {{ invoice.ewaybill_date_display or '-' }}</div>
+                    <div class="line" style="margin-top: 10px;"><span class="label">Signature :</span> {{ 'Digitally Signed' if invoice.digitally_signed else 'Not Signed' }}</div>
+                </td>
+            </tr>
+        </table>
+
+        <table class="items">
+            <thead>
+                <tr>
+                    <th class="desc-col center">Description of Goods</th>
+                    <th class="qty-col center">Quantity</th>
+                    <th class="rate-col center">Rate</th>
+                    <th class="hsn-col center">HSN CODE</th>
+                    <th class="amt-col center">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in invoice.get('items', []) %}
+                    <tr>
+                        <td>{{ item.description }}</td>
+                        <td class="center">{{ "%.3f"|format(item.quantity) }}</td>
+                        <td class="center">{{ "%.2f"|format(item.rate) }}</td>
+                        <td class="center" style="font-weight: 700;">{{ item.get('hsn', '') }}</td>
+                        <td class="num">{{ "%.2f"|format(item.quantity * item.rate) }}</td>
+                    </tr>
+                {% endfor %}
+
+                {% for _ in range(10 - (invoice.get('items', [])|length)) %}
+                    <tr>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                        <td>&nbsp;</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <table class="totals-wrap">
+            <tr>
+                <td class="left-pad"></td>
+                <td class="totals-label"><span class="label">TOTAL</span></td>
+                <td class="totals-rate"></td>
+                <td class="totals-amount">{{ "%.2f"|format(invoice.subtotal) }}</td>
+            </tr>
+
+            {% if invoice.delivery_charge and invoice.delivery_charge > 0 %}
+                <tr>
+                    <td class="left-pad"></td>
+                    <td class="totals-label"><span class="label">Delivery Charge</span></td>
+                    <td class="totals-rate"></td>
+                    <td class="totals-amount">{{ "%.2f"|format(invoice.delivery_charge) }}</td>
+                </tr>
+            {% endif %}
+
+            {% if invoice.display_tax_type == 'IGST' %}
+                <tr>
+                    <td class="left-pad"></td>
+                    <td class="totals-label"><span class="label">G.S.T SALES I.G.S.T @</span></td>
+                    <td class="totals-rate">{{ "%.2f"|format(invoice.igst_rate) }}%</td>
+                    <td class="totals-amount">{{ "%.2f"|format(invoice.igst_amount) }}</td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td class="left-pad"></td>
+                    <td class="totals-label"><span class="label">G.S.T SALES C.G.S.T @</span></td>
+                    <td class="totals-rate">{{ "%.2f"|format(invoice.cgst_rate) }}%</td>
+                    <td class="totals-amount">{{ "%.2f"|format(invoice.cgst_amount) }}</td>
+                </tr>
+                <tr>
+                    <td class="left-pad"></td>
+                    <td class="totals-label"><span class="label">G.S.T SALES S.G.S.T @</span></td>
+                    <td class="totals-rate">{{ "%.2f"|format(invoice.sgst_rate) }}%</td>
+                    <td class="totals-amount">{{ "%.2f"|format(invoice.sgst_amount) }}</td>
+                </tr>
+            {% endif %}
+
+            <tr>
+                <td class="left-pad"></td>
+                <td class="totals-label"><span class="label">Round off</span></td>
+                <td class="totals-rate"></td>
+                <td class="totals-amount">{{ "%.2f"|format(invoice.round_off_value) }}</td>
+            </tr>
+            <tr>
+                <td class="left-pad"></td>
+                <td class="totals-label"><span class="label">TOTAL</span></td>
+                <td class="totals-rate"></td>
+                <td class="totals-amount"><span class="label">{{ "%.2f"|format(invoice.rounded_total) }}</span></td>
+            </tr>
+        </table>
+
+        <div class="amount-words">
+            <span class="label">AMOUNT :</span>
+            {% if invoice.amount_in_words %}
+                {{ invoice.amount_in_words.replace('Rupees ', '') }}
+            {% else %}
+                Zero Only
+            {% endif %}
         </div>
+
+        <table class="footer">
+            <tr>
+                <td class="bank">
+                    Bank Details:<br>
+                    ICICI Bank<br>
+                    Salt lake Sector 2 Branch<br>
+                    A/C No.: 004205008313<br>
+                    IFSC No.: ICIC0000042
+                </td>
+                <td class="sign">
+                    <div style="margin-top: 38px;">For Shakambhari Enterprises</div>
+                        {% if invoice.digitally_signed and signature_uri %}
+                            <div style="margin-top: 6px;"><img src="{{ signature_uri }}" alt="Signature" style="max-width:260px; max-height:90px; height:auto;"/></div>
+                        {% elif invoice.digitally_signed %}
+                            <div style="margin-top: 6px;"><img src="{{ url_for('static', filename='signature.svg') }}" alt="Signature" style="max-width:260px; max-height:90px; height:auto;"/></div>
+                        {% endif %}
+                    <div style="margin-top: 10px;">Authorised Signatory.</div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="subject">Subject to Kolkata Jurisdiction.</div>
     </div>
 </body>
 </html>

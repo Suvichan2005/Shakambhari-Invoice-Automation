@@ -8,8 +8,7 @@ from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 import app as app_module
-from app import app, round_half_up
-from copy1 import copy_excel_with_formatting
+from app import app, round_half_up, copy_excel_with_formatting
 from openpyxl import Workbook
 
 

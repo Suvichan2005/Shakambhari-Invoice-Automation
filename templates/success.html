@@ -200,6 +200,20 @@
             {% endif %}
             
             <div class="divider"></div>
+
+            <!-- GUIDED SEQUENTIAL QUEUE NEXT BILL BUTTON -->
+            <div id="next_bill_queue_card" style="display: none; width: 100%; margin: 15px 0 25px 0; background: linear-gradient(135deg, #eef2ff 0%, #fdf2f8 100%); border: 2.5px solid #6366f1; border-radius: 14px; padding: 22px; box-shadow: 0 8px 25px rgba(99, 102, 241, 0.2);">
+                <div style="font-weight: 800; font-size: 1.2rem; color: #312e81; margin-bottom: 8px;">
+                    ➡️ Next Bill Ready on Your Chit!
+                </div>
+                <div style="font-size: 1rem; color: #4338ca; margin-bottom: 16px;">
+                    <span id="next_bill_counter" style="background: #e0e7ff; padding: 4px 10px; border-radius: 12px; font-weight: 800; margin-right: 6px;">Bill 2 of 2</span>
+                    Party: <strong id="next_bill_buyer_name" style="font-size: 1.15rem; color: #1e1b4b;">-</strong>
+                </div>
+                <button type="button" id="btn_continue_next_bill" class="btn btn-primary" style="width: 100%; max-width: 100%; margin: 0; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); font-size: 1.3rem; padding: 18px; border-radius: 12px; box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);">
+                    👉 Continue to Next Bill: <span id="btn_buyer_name_label">Next Bill</span>
+                </button>
+            </div>
             
             <div class="section-title">🔧 NEXT STEPS</div>
             <a href="{{ url_for('index') }}" class="btn btn-primary" style="width: 100%; max-width: 100%; margin-bottom: 15px; padding: 22px; font-size: 1.4rem;">
@@ -213,5 +227,40 @@
             </a>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const queueStr = sessionStorage.getItem('pending_bills_queue');
+                const curIdxStr = sessionStorage.getItem('current_bill_index');
+                if (queueStr && curIdxStr !== null) {
+                    const queue = JSON.parse(queueStr);
+                    const curIdx = parseInt(curIdxStr, 10);
+                    const nextIdx = curIdx + 1;
+                    if (queue && nextIdx < queue.length) {
+                        const nextBill = queue[nextIdx];
+                        const card = document.getElementById('next_bill_queue_card');
+                        if (card && nextBill) {
+                            card.style.display = 'block';
+                            const bName = nextBill.buyer_name || `Bill #${nextIdx + 1}`;
+                            document.getElementById('next_bill_buyer_name').textContent = bName;
+                            document.getElementById('btn_buyer_name_label').textContent = bName;
+                            document.getElementById('next_bill_counter').textContent = `Bill ${nextIdx + 1} of ${queue.length}`;
+                            document.getElementById('btn_continue_next_bill').onclick = () => {
+                                sessionStorage.setItem('current_bill_index', nextIdx.toString());
+                                window.location.href = "{{ url_for('index') }}?from_queue=1";
+                            };
+                        }
+                    } else {
+                        // All bills completed in queue!
+                        sessionStorage.removeItem('pending_bills_queue');
+                        sessionStorage.removeItem('current_bill_index');
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        });
+    </script>
 </body>
 </html>

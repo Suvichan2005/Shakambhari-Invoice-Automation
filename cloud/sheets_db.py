@@ -1,3 +1,4 @@
+from __future__ import annotations
 import time
 """
 Google Sheets Integration for Shakambhari Invoice Generator
@@ -12,9 +13,12 @@ import os
 import re
 import json
 from typing import List, Dict, Optional
-from datetime import datetime
-import gspread
-from google.oauth2.service_account import Credentials
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+except ImportError:
+    gspread = None
+    Credentials = None
 
 # Google Sheets API scopes
 SCOPES = [

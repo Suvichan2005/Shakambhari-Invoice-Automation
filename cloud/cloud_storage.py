@@ -6,13 +6,17 @@ Handles file uploads and downloads for:
 - Generated PDF invoices
 - Invoice templates
 """
-
+from __future__ import annotations
 import os
 import io
 from typing import Optional, Tuple
 from datetime import datetime, timedelta
-from google.cloud import storage
-from google.cloud.exceptions import NotFound
+try:
+    from google.cloud import storage
+    from google.cloud.exceptions import NotFound
+except ImportError:
+    storage = None
+    NotFound = Exception
 
 
 class CloudStorage:

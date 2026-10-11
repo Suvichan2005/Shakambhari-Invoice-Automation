@@ -15,8 +15,23 @@ import json
 import re
 from decimal import Decimal, ROUND_HALF_UP
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, jsonify, make_response
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+try:
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo('Asia/Kolkata')
+    datetime.now(IST)
+except Exception:
+    IST = timezone(timedelta(hours=5, minutes=30), name='IST')
+
+def get_ist_now():
+    """Return current datetime in Indian Standard Time (Asia/Kolkata)."""
+    return datetime.now(IST)
+
+def get_ist_today_str():
+    """Return today's date formatted as YYYY-MM-DD in IST."""
+    return get_ist_now().strftime('%Y-%m-%d')
 import uuid
+import time
 from num2words import num2words
 from typing import Any, List, Dict, Optional
 # The old helper `copy1.copy_excel_with_formatting` was removed; use the
@@ -95,7 +110,7 @@ def backup_json(path: str) -> None:
     if not os.path.isfile(path):
         return
     try:
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        stamp = get_ist_now().strftime("%Y%m%d_%H%M%S")
         backup_file = os.path.join(BACKUP_DIR, f"{os.path.basename(path)}.{stamp}.bak")
         with open(path, 'rb') as src, open(backup_file, 'wb') as dst:
             dst.write(src.read())
@@ -129,7 +144,7 @@ def save_data(json_path: str, data: Any) -> bool:
 
 def _financial_year_suffix(today: datetime = None) -> str:
     """Get the financial year suffix like /2025-26."""
-    today = today or datetime.now()
+    today = today or get_ist_now()
     year = today.year
     if today.month >= 4:
         start = year
@@ -195,6 +210,31 @@ def suggest_next_invoice_number() -> str:
     except FileNotFoundError:
         files = []
     return next_invoice_number(files)
+
+
+def format_sequential_invoice_number(base_inv: str, offset: int = 0) -> str:
+    """Increment the sequence number in an invoice string (e.g. '036/2026-27' -> '037/2026-27')."""
+    if not base_inv:
+        return ''
+    m = re.match(r'^(.*?)(\d+)(/.*)?$', base_inv)
+    if m:
+        prefix = m.group(1)
+        digits = m.group(2)
+        suffix = m.group(3) or ''
+        seq_num = int(digits) + offset
+        return f"{prefix}{str(seq_num).zfill(len(digits))}{suffix}"
+    return base_inv
+
+
+
+
+def format_date_for_invoice(date_str: str) -> str:
+    """Convert YYYY-MM-DD to DD/MM/YYYY for invoice display."""
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        return dt.strftime('%d/%m/%Y')
+    except ValueError:
+        return date_str
 
 
 TRANSPORT_PREFIX_VARIANTS = [
@@ -447,7 +487,7 @@ def index():
     """Main invoice generation page."""
     buyer_profiles = load_data(BUYER_PROFILES_JSON)
     transport_modes = load_data(TRANSPORT_MODES_JSON)
-    today_date = datetime.now().strftime('%Y-%m-%d')
+    today_date = get_ist_today_str()
     
     # Filter valid profiles and sort by name
     valid_buyer_profiles = [p for p in buyer_profiles if p.get('profile_id') and p.get('buyer_name')]
@@ -810,6 +850,161 @@ def api_ai_create_buyer_local():
         return api_ai_create_buyer()
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI create buyer error: {e}'}), 500
+
+
+@app.route('/logout', methods=['GET', 'POST'])
+def logout():
+    """Logout endpoint."""
+    return redirect(url_for('index'))
+
+
+@app.route('/api/generate_batch', methods=['POST'])
+def api_generate_batch_local():
+    """Batch generate invoices in local workspace or delegate to cloud."""
+    data = request.get_json(silent=True) or {}
+    raw_invoices = data.get('invoices', [])
+    if not raw_invoices:
+        return jsonify({'success': False, 'error': 'No invoices provided for batch generation.'}), 400
+
+    # Try cloud module if available and storage is reachable
+    try:
+        from cloud.app_cloud import get_cloud_storage, get_sheets_db_or_none, api_generate_batch
+        if get_cloud_storage() and get_sheets_db_or_none():
+            return api_generate_batch()
+    except Exception:
+        pass
+
+    # Local batch generation fallback
+    try:
+        buyer_profiles = load_data(BUYER_PROFILES_JSON)
+        base_suggested_inv = suggest_next_invoice_number()
+        results = []
+        errors = []
+
+        for idx, inv in enumerate(raw_invoices):
+            try:
+                buyer = None
+                p_id = inv.get('matched_profile_id')
+                if p_id:
+                    buyer = next((p for p in buyer_profiles if p.get('profile_id') == p_id), None)
+                if not buyer and inv.get('buyer_name'):
+                    b_name_lower = inv['buyer_name'].strip().lower()
+                    buyer = next((p for p in buyer_profiles if p.get('buyer_name', '').strip().lower() == b_name_lower), None)
+                if not buyer and inv.get('buyer_name'):
+                    new_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+                    buyer = {
+                        'profile_id': new_id,
+                        'buyer_name': inv['buyer_name'].strip(),
+                        'buyer_details': inv.get('buyer_details') or [inv['buyer_name'].strip()],
+                        'gstin': inv.get('gstin', '').strip().upper(),
+                        'state': inv.get('state', ''),
+                        'state_code': inv.get('state_code', ''),
+                        'default_tax_type': inv.get('tax_type', 'IGST')
+                    }
+                    buyer_profiles.append(buyer)
+                    save_data(BUYER_PROFILES_JSON, buyer_profiles)
+
+                if not buyer:
+                    errors.append(f"Bill #{idx+1}: Buyer could not be determined.")
+                    continue
+
+                inv_number = inv.get('invoice_number') or format_sequential_invoice_number(base_suggested_inv, idx)
+                inv_date = inv.get('invoice_date') or get_ist_today_str()
+                tax_type = inv.get('tax_type') or buyer.get('default_tax_type', 'IGST')
+                transport = normalize_transport_mode(inv.get('transport_mode') or 'By Road')
+                delivery = safe_float(inv.get('delivery_charge', 0), 0.0)
+
+                raw_items = inv.get('items', [])
+                items = []
+                for it in raw_items:
+                    q = float(it.get('quantity') or 0)
+                    r = float(it.get('rate') or 0)
+                    if q > 0 or r > 0:
+                        d = (it.get('description') or 'Aluminium Utensils').strip()
+                        b = str(it.get('bags') or '').strip()
+                        u = (it.get('unit') or 'Bags').strip()
+                        d = re.sub(r'\s*\(\s*[\d\.]+\s*(?:[A-Za-z]+|\s*)+\)', '', d, flags=re.IGNORECASE).strip()
+                        if b:
+                            d += f" ({b} {u})"
+                        items.append({
+                            'description': d,
+                            'bags': b,
+                            'unit': u,
+                            'hsn': it.get('hsn') or '76151030',
+                            'quantity': q,
+                            'rate': r,
+                            'amount': q * r
+                        })
+
+                if not items:
+                    errors.append(f"Bill #{idx+1} ({buyer['buyer_name']}): No items specified.")
+                    continue
+
+                subtotal = sum(it['amount'] for it in items)
+                taxable_amount = subtotal + delivery
+                if tax_type == "CGST_SGST":
+                    cgst = taxable_amount * 0.025
+                    sgst = taxable_amount * 0.025
+                    igst = 0.0
+                else:
+                    cgst = 0.0
+                    sgst = 0.0
+                    igst = taxable_amount * 0.05
+                tot_before_round = taxable_amount + cgst + sgst + igst
+                rounded_tot = round_half_up(tot_before_round)
+
+                safe_buyer = ''.join(c if c.isalnum() else '_' for c in buyer['buyer_name'][:20])
+                clean_inv_num = inv_number.replace('/', '-')
+                filename = f"Invoice_{clean_inv_num}_{inv_date}_{safe_buyer}.xlsx"
+                dest_filepath = os.path.join(OUTPUT_DIR, filename)
+
+                config_data = {
+                    "buyer_details": buyer.get('buyer_details', []),
+                    "mode_of_transport": transport,
+                    "items": items,
+                    "delivery_charge": delivery,
+                    "tax_type": tax_type,
+                    "invoice_number": f"INVOICE No. {inv_number}",
+                    "invoice_date": f"Date : {format_date_for_invoice(inv_date)}"
+                }
+                copy_excel_with_formatting(TEMPLATE_EXCEL_FILE, dest_filepath, config_data)
+
+                pdf_filename = filename.replace('.xlsx', '.pdf')
+                pdf_filepath = os.path.join(PDF_OUTPUT_DIR, pdf_filename)
+                pdf_generated = False
+                if WIN32COM_AVAILABLE:
+                    try:
+                        pdf_generated = convert_excel_to_pdf(dest_filepath, pdf_filepath)
+                    except Exception:
+                        pdf_generated = False
+
+                excel_download_url = url_for('download_xlsx', filename=filename)
+                pdf_download_url = url_for('download_pdf', filename=pdf_filename) if pdf_generated else ''
+
+                results.append({
+                    'invoice_number': inv_number,
+                    'buyer_name': buyer['buyer_name'],
+                    'total_amount': f"{rounded_tot:.2f}",
+                    'filename': filename,
+                    'excel_url': excel_download_url,
+                    'pdf_url': pdf_download_url,
+                    'is_pdf': pdf_generated
+                })
+            except Exception as err:
+                app.logger.error("Error generating bill in batch: %s", err)
+                errors.append(f"Bill #{idx+1}: {str(err)}")
+
+        if not results:
+            return jsonify({'success': False, 'error': '; '.join(errors) or 'Batch generation failed.'}), 400
+
+        return jsonify({
+            'success': True,
+            'created_count': len(results),
+            'results': results,
+            'errors': errors
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Batch generate error: {e}'}), 500
 
 
 @app.route('/download/xlsx/<path:filename>')

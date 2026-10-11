@@ -19,7 +19,21 @@ from copy import copy
 from decimal import Decimal, ROUND_HALF_UP
 from collections import defaultdict, deque
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, Response, session, send_from_directory, make_response
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+try:
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo('Asia/Kolkata')
+    datetime.now(IST)
+except Exception:
+    IST = timezone(timedelta(hours=5, minutes=30), name='IST')
+
+def get_ist_now():
+    """Return current datetime in Indian Standard Time (Asia/Kolkata)."""
+    return datetime.now(IST)
+
+def get_ist_today_str():
+    """Return today's date formatted as YYYY-MM-DD in IST."""
+    return get_ist_now().strftime('%Y-%m-%d')
 import uuid
 from num2words import num2words
 from typing import Any, List, Dict, Optional, Tuple
@@ -27,6 +41,11 @@ from werkzeug.exceptions import HTTPException
 import urllib.request
 import urllib.error
 from pathlib import Path
+import sys
+
+_cloud_dir = os.path.dirname(os.path.abspath(__file__))
+if _cloud_dir not in sys.path:
+    sys.path.insert(0, _cloud_dir)
 
 # Cloud integrations
 from sheets_db import GoogleSheetsDB, init_sheets_db
@@ -678,7 +697,7 @@ def _merge_with_storage_rows(sheet_rows: List[Dict], storage_rows: List[Dict]) -
 
 def _financial_year_suffix(today: datetime = None) -> str:
     """Get the financial year suffix like /2025-26."""
-    today = today or datetime.now()
+    today = today or get_ist_now()
     year = today.year
     if today.month >= 4:
         start = year
@@ -724,6 +743,20 @@ def suggest_next_invoice_number() -> str:
         return f"{max_num + 1}{fy}"
     
     return f"1{fy}"
+
+
+def format_sequential_invoice_number(base_inv: str, offset: int = 0) -> str:
+    """Increment the sequence number in an invoice string (e.g. '036/2026-27' -> '037/2026-27')."""
+    if not base_inv:
+        return ''
+    m = re.match(r'^(.*?)(\d+)(/.*)?$', base_inv)
+    if m:
+        prefix = m.group(1)
+        digits = m.group(2)
+        suffix = m.group(3) or ''
+        seq_num = int(digits) + offset
+        return f"{prefix}{str(seq_num).zfill(len(digits))}{suffix}"
+    return base_inv
 
 
 def format_date_for_invoice(date_str: str) -> str:
@@ -1305,7 +1338,7 @@ def favicon():
 @app.route('/')
 def index():
     """Main invoice generation page."""
-    today_date = datetime.now().strftime('%Y-%m-%d')
+    today_date = get_ist_today_str()
     suggestion = suggest_next_invoice_number()
     db = get_sheets_db_or_none()
     bucket = os.environ.get('GCS_BUCKET_NAME', '')
@@ -2283,8 +2316,8 @@ def api_ai_parse_bill():
     ]
 
     instruction = (
-        f"You are the personal billing assistant for {company_name}, an aluminium utensils manufacturing and trading business in Liluah/Howrah, West Bengal.\n"
-        "Your task is to accurately read rough slips, paper chits, visiting cards, weight notes, or verbal instructions and extract complete invoice data.\n\n"
+        f"You are the billing assistant for {company_name}, an aluminium utensils manufacturing and trading business in Liluah/Howrah, West Bengal.\n"
+        "Your task is to accurately read rough paper chits, handwritten slips, weight slips, visiting cards, or spoken text and extract complete invoice data.\n\n"
         "=== DATABASE GROUNDING (YOUR KNOWLEDGE BASE) ===\n"
         f"1. KNOWN BUYERS IN DATABASE ({len(known_buyers)} profiles):\n"
         f"{json.dumps(buyers_summary, ensure_ascii=False, indent=1)}\n\n"
@@ -2296,63 +2329,64 @@ def api_ai_parse_bill():
         f"{json.dumps(existing_invoices_sample[:80], ensure_ascii=False)}\n\n"
         f"5. SUGGESTED NEXT SEQUENTIAL INVOICE NUMBER: {suggested_inv}\n\n"
         "=== CRITICAL INSTRUCTIONS ===\n"
-        "1. DUPLICATE INVOICE CHECK:\n"
-        "   - If an invoice number is found or specified (e.g. '057', '57', '57/2026-27'), check if it already exists in RECENT INVOICE NUMBERS.\n"
-        "   - If it DOES exist in past invoices:\n"
-        "     * Set 'is_duplicate_invoice': true\n"
-        f"     * Add a clarification question: 'Invoice #{'{num}'} is already in past records. Do you want to proceed with this duplicate number, or use next suggested number {suggested_inv}?'\n"
-        "   - If not in past invoices:\n"
-        "     * Set 'is_duplicate_invoice': false\n"
-        "   - If no invoice number is specified on the slip, leave 'invoice_number' as '' or use the suggested next number.\n\n"
-        "2. TOLERANT BUYER MATCHING (SEMANTIC & FUZZY):\n"
-        "   - Search KNOWN BUYERS carefully. Do NOT miss a match because of slight spelling differences, abbreviations, punctuation, or OCR noise (e.g. 'Das metal' matches 'Das Metal', 'Anand Metal' matches 'ANAND METAL WORKS', 'Manik' matches 'M/S MANIK STORE').\n"
+        "1. TONE AND EXPLANATION (NO TECHNICAL JARGON):\n"
+        "   - Use clear, respectful everyday English as if speaking to an experienced 55-year-old business owner.\n"
+        "   - NEVER use technical jargon like 'multimodal', 'payload', 'grounding', 'override', 'JSON schema', or 'regex'.\n"
+        "   - Clearly state which bills were found, party names, bag counts, weights in kg, and rates.\n\n"
+        "2. MULTIPLE BILLS ON A SINGLE CHIT OR NOTE:\n"
+        "   - A single paper chit or voice note often contains 2 or 3 separate bills for different buyers (e.g., 'Das Metal 2 bags 84 kg @ 380' and 'Rishab Metal 1 bag 42 kg @ 385').\n"
+        "   - When multiple bills or parties appear, extract EACH bill as an element in the 'invoices' array.\n"
+        "   - For invoice numbering: start with the suggested next invoice number and increment sequentially for each subsequent bill (e.g., if suggested is 057, Bill 1 is 057, Bill 2 is 058).\n"
+        "   - If only 1 bill is present, still include it in 'invoices': [ ... ] and also populate 'data'.\n\n"
+        "3. TOLERANT BUYER MATCHING:\n"
+        "   - Search KNOWN BUYERS carefully. Match flexibly even with minor differences or abbreviations (e.g., 'Das metal' matches 'Das Metal', 'Anand Metal' matches 'ANAND METAL WORKS').\n"
         "   - If matched, set 'matched_profile_id' to that ID, 'buyer_name' to the official name, and 'is_new_buyer': false.\n"
         "   - If it is genuinely a new party or visiting card, set 'is_new_buyer': true, 'matched_profile_id': null, formulate clean 'buyer_details' address lines, and extract 'gstin', 'state', 'state_code'.\n\n"
-        "3. LOGISTICS MATCHING:\n"
-        "   - Match transport to KNOWN TRANSPORTS (e.g. 'Gaya transport' -> 'By Gaya Aurangabad Transport', 'SPS' -> 'SPS PARRCELL PRIVATE LIMITED').\n"
-        "   - Dispatch from: default to Liluah Warehouse address unless an alternate dispatch address is indicated.\n\n"
-        "4. GOODS & TAXATION:\n"
+        "4. GOODS, PACKAGING & TAXATION:\n"
         "   - Default description: 'Aluminium Utensils'.\n"
-        "   - Packaging unit: default 'Bags', but if 'bundle', 'bundles', 'box', 'boxes', 'carton' or another packaging is noted on the slip or spoken, set 'unit' accordingly (e.g. 'Bundles').\n"
+        "   - Packaging unit: default 'Bags', but if 'bundle', 'bundles', 'box', 'boxes', 'carton' or 'pieces' is noted, set 'unit' accordingly (e.g., 'Bundles', 'Boxes', 'Pieces').\n"
         "   - Default HSN: '76151030'.\n"
         "   - Tax type: 'IGST' if buyer is outside West Bengal (State Code != 19) or unknown; 'CGST_SGST' if buyer is within West Bengal (State Code 19).\n"
-        "   - If any handwriting or rate/weight is blurry or ambiguous, list a specific question in 'clarifications'.\n\n"
-        "5. MULTI-TURN REVISION & DRAFT UPDATES:\n"
-        "   - If the user provides a follow-up answer (e.g. 'use 058', 'change rate to 410', 'add delivery 300'), apply those corrections directly into 'data'.\n\n"
+        f"   - Default invoice date: '{get_ist_today_str()}'.\n\n"
+        "5. DUPLICATE INVOICE CHECK:\n"
+        "   - If an invoice number already exists in RECENT INVOICE NUMBERS, set 'is_duplicate_invoice': true and ask a clarification question.\n\n"
         "OUTPUT STRICT JSON ONLY (NO CODE BLOCKS OR MARKDOWN):\n"
         "{\n"
-        '  "conversational_message": "Friendly explanation of what was found, matched, or updated...",\n'
-        '  "has_clarifications": true,\n'
-        '  "clarifications": ["Clarification question 1...", "Clarification question 2..."],\n'
+        '  "conversational_message": "Friendly plain English explanation of the bills found...",\n'
+        '  "has_clarifications": false,\n'
+        '  "clarifications": [],\n'
         '  "is_duplicate_invoice": false,\n'
         '  "suggested_next_invoice_number": "' + suggested_inv + '",\n'
-        '  "data": {\n'
-        '    "invoice_number": "...",\n'
-        '    "invoice_date": "YYYY-MM-DD",\n'
-        '    "ewaybill_number": "",\n'
-        '    "ewaybill_date": "",\n'
-        '    "buyer_name": "...",\n'
-        '    "matched_profile_id": "..." or null,\n'
-        '    "is_new_buyer": false,\n'
-        '    "buyer_details": ["Line 1", "Line 2", ...],\n'
-        '    "gstin": "...",\n'
-        '    "state": "...",\n'
-        '    "state_code": "...",\n'
-        '    "transport_mode": "...",\n'
-        '    "dispatch_from": "...",\n'
-        '    "delivery_charge": 0.0,\n'
-        '    "tax_type": "IGST" or "CGST_SGST",\n'
-        '    "items": [\n'
-        '      {\n'
-        '        "description": "Aluminium Utensils",\n'
-        '        "bags": "2",\n'
-        '        "unit": "Bags",\n'
-        '        "quantity": 89.080,\n'
-        '        "rate": 400.00,\n'
-        '        "hsn": "76151030"\n'
-        '      }\n'
-        '    ]\n'
-        '  }\n'
+        '  "invoices": [\n'
+        '    {\n'
+        '      "invoice_number": "' + suggested_inv + '",\n'
+        '      "invoice_date": "' + get_ist_today_str() + '",\n'
+        '      "ewaybill_number": "",\n'
+        '      "ewaybill_date": "",\n'
+        '      "buyer_name": "...",\n'
+        '      "matched_profile_id": "..." or null,\n'
+        '      "is_new_buyer": false,\n'
+        '      "buyer_details": ["Line 1", "Line 2"],\n'
+        '      "gstin": "...",\n'
+        '      "state": "...",\n'
+        '      "state_code": "...",\n'
+        '      "transport_mode": "...",\n'
+        '      "dispatch_from": "...",\n'
+        '      "delivery_charge": 0.0,\n'
+        '      "tax_type": "IGST" or "CGST_SGST",\n'
+        '      "items": [\n'
+        '        {\n'
+        '          "description": "Aluminium Utensils",\n'
+        '          "bags": "2",\n'
+        '          "unit": "Bags",\n'
+        '          "quantity": 84.0,\n'
+        '          "rate": 380.00,\n'
+        '          "hsn": "76151030"\n'
+        '        }\n'
+        '      ]\n'
+        '    }\n'
+        '  ],\n'
+        '  "data": { ...first bill object... }\n'
         "}"
     )
 
@@ -2420,30 +2454,77 @@ def api_ai_parse_bill():
                     else:
                         raise
 
-                extracted_data = parsed_response.get('data') or parsed_response
+                raw_invoices = parsed_response.get('invoices')
+                if not raw_invoices or not isinstance(raw_invoices, list):
+                    single_val = parsed_response.get('data') or parsed_response
+                    if isinstance(single_val, list):
+                        raw_invoices = single_val
+                    elif isinstance(single_val, dict):
+                        raw_invoices = [single_val]
+                    else:
+                        raw_invoices = []
 
-                # If new buyer and auto-save enabled, persist to Google Sheets
-                if extracted_data.get('is_new_buyer') and extracted_data.get('buyer_name') and create_buyer_if_new:
-                    new_profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
-                    b_lines = extracted_data.get('buyer_details') or [extracted_data.get('buyer_name')]
-                    new_profile = {
-                        'profile_id': new_profile_id,
-                        'buyer_name': extracted_data.get('buyer_name', '').strip(),
-                        'buyer_details': b_lines,
-                        'gstin': extracted_data.get('gstin', '').strip().upper(),
-                        'state': extracted_data.get('state', ''),
-                        'state_code': extracted_data.get('state_code', ''),
-                        'default_tax_type': extracted_data.get('tax_type', 'IGST')
-                    }
-                    try:
-                        db = get_sheets_db_or_none()
-                        if db:
-                            db.save_buyer(new_profile)
-                    except Exception as err:
-                        app.logger.warning("Could not auto-save new buyer profile: %s", err)
-                    extracted_data['matched_profile_id'] = new_profile_id
-                    extracted_data['created_profile'] = new_profile
-                    parsed_response['data'] = extracted_data
+                today_ist = get_ist_today_str()
+                parsed_invoices = []
+
+                for idx, inv in enumerate(raw_invoices):
+                    if not isinstance(inv, dict):
+                        continue
+                    inv_data = dict(inv)
+                    if not inv_data.get('invoice_date'):
+                        inv_data['invoice_date'] = today_ist
+
+                    # Assign sequential invoice number if missing
+                    if not inv_data.get('invoice_number') and suggested_inv:
+                        inv_data['invoice_number'] = format_sequential_invoice_number(suggested_inv, idx)
+
+                    # Auto-persist new buyer if requested
+                    if inv_data.get('is_new_buyer') and inv_data.get('buyer_name') and create_buyer_if_new:
+                        b_name = inv_data.get('buyer_name', '').strip()
+                        matched = next((kb for kb in known_buyers if kb.get('buyer_name', '').strip().lower() == b_name.lower()), None)
+                        if matched:
+                            inv_data['is_new_buyer'] = False
+                            inv_data['matched_profile_id'] = matched.get('profile_id')
+                        else:
+                            new_profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+                            b_lines = inv_data.get('buyer_details') or [b_name]
+                            new_profile = {
+                                'profile_id': new_profile_id,
+                                'buyer_name': b_name,
+                                'buyer_details': b_lines,
+                                'gstin': inv_data.get('gstin', '').strip().upper(),
+                                'state': inv_data.get('state', ''),
+                                'state_code': inv_data.get('state_code', ''),
+                                'default_tax_type': inv_data.get('tax_type', 'IGST')
+                            }
+                            try:
+                                db = get_sheets_db_or_none()
+                                if db:
+                                    db.save_buyer(new_profile)
+                                    known_buyers.append(new_profile)
+                            except Exception as err:
+                                app.logger.warning("Could not auto-save new buyer profile: %s", err)
+                            inv_data['matched_profile_id'] = new_profile_id
+                            inv_data['created_profile'] = new_profile
+
+                    # Normalize items: guarantee default description, Bags unit, and numeric types
+                    norm_items = []
+                    raw_items = inv_data.get('items', [])
+                    if isinstance(raw_items, list):
+                        for it in raw_items:
+                            if isinstance(it, dict):
+                                norm_items.append({
+                                    'description': it.get('description') or 'Aluminium Utensils',
+                                    'bags': str(it.get('bags') or ''),
+                                    'unit': it.get('unit') or 'Bags',
+                                    'quantity': float(it.get('quantity') or 0),
+                                    'rate': float(it.get('rate') or 0),
+                                    'hsn': it.get('hsn') or '76151030'
+                                })
+                    inv_data['items'] = norm_items
+                    parsed_invoices.append(inv_data)
+
+                primary_invoice = parsed_invoices[0] if parsed_invoices else {}
 
                 return jsonify({
                     'success': True,
@@ -2454,7 +2535,8 @@ def api_ai_parse_bill():
                     'is_duplicate_invoice': parsed_response.get('is_duplicate_invoice', False),
                     'duplicate_warning': parsed_response.get('duplicate_warning'),
                     'suggested_next_invoice_number': parsed_response.get('suggested_next_invoice_number', suggested_inv),
-                    'data': extracted_data
+                    'invoices': parsed_invoices,
+                    'data': primary_invoice
                 })
 
         except urllib.error.HTTPError as he:
@@ -2518,6 +2600,191 @@ def api_ai_create_buyer():
     })
 
 
+@app.route('/api/generate_batch', methods=['POST'])
+def api_generate_batch():
+    """
+    Batch generate multiple invoices at once from extracted AI chits.
+    Saves all records and generates download links for both PDF and Excel.
+    """
+    data = request.get_json(silent=True) or {}
+    raw_invoices = data.get('invoices', [])
+    if not raw_invoices:
+        return jsonify({'success': False, 'error': 'No invoices provided for batch generation.'}), 400
+
+    db = get_sheets_db_or_none()
+    storage = get_cloud_storage()
+    if not db or not storage:
+        return jsonify({'success': False, 'error': 'Database or storage service unavailable.'}), 500
+
+    base_suggested_inv = suggest_next_invoice_number()
+    results = []
+    errors = []
+
+    for idx, inv in enumerate(raw_invoices):
+        try:
+            buyer = None
+            if inv.get('matched_profile_id'):
+                buyer = db.get_buyer(inv['matched_profile_id'])
+            if not buyer and inv.get('buyer_name'):
+                all_b = db.get_all_buyers()
+                b_name_lower = inv['buyer_name'].strip().lower()
+                buyer = next((b for b in all_b if b.get('buyer_name', '').strip().lower() == b_name_lower), None)
+            if not buyer and inv.get('buyer_name'):
+                new_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+                buyer = {
+                    'profile_id': new_id,
+                    'buyer_name': inv['buyer_name'].strip(),
+                    'buyer_details': inv.get('buyer_details') or [inv['buyer_name'].strip()],
+                    'gstin': inv.get('gstin', '').strip().upper(),
+                    'state': inv.get('state', ''),
+                    'state_code': inv.get('state_code', ''),
+                    'default_tax_type': inv.get('tax_type', 'IGST')
+                }
+                try:
+                    db.save_buyer(buyer)
+                except Exception:
+                    pass
+
+            if not buyer:
+                errors.append(f"Bill #{idx+1}: Buyer could not be determined.")
+                continue
+
+            inv_number = inv.get('invoice_number') or format_sequential_invoice_number(base_suggested_inv, idx)
+            inv_date = inv.get('invoice_date') or get_ist_today_str()
+            tax_type = inv.get('tax_type') or buyer.get('default_tax_type', 'IGST')
+            transport = normalize_transport_mode(inv.get('transport_mode') or 'By Road')
+            delivery = safe_float(inv.get('delivery_charge', 0), 0.0)
+
+            raw_items = inv.get('items', [])
+            items = []
+            for it in raw_items:
+                q = float(it.get('quantity') or 0)
+                r = float(it.get('rate') or 0)
+                if q > 0 or r > 0:
+                    d = (it.get('description') or 'Aluminium Utensils').strip()
+                    b = str(it.get('bags') or '').strip()
+                    u = (it.get('unit') or 'Bags').strip()
+                    d = re.sub(r'\s*\(\s*[\d\.]+\s*(?:[A-Za-z]+|\s*)+\)', '', d, flags=re.IGNORECASE).strip()
+                    if b:
+                        d += f" ({b} {u})"
+                    items.append({
+                        'description': d,
+                        'bags': b,
+                        'unit': u,
+                        'hsn': it.get('hsn') or '76151030',
+                        'quantity': q,
+                        'rate': r,
+                        'amount': q * r
+                    })
+
+            if not items:
+                errors.append(f"Bill #{idx+1} ({buyer['buyer_name']}): No items specified.")
+                continue
+
+            totals = calculate_invoice_totals(items, tax_type, delivery_charge=delivery)
+
+            ship_from_text = (inv.get('dispatch_from') or '').strip()
+            ship_from_lines = [l.strip() for l in re.split(r'[\r\n]+', ship_from_text) if l.strip()] if ship_from_text else []
+            ship_to_lines = buyer.get('buyer_details', [])
+
+            invoice_data = {
+                'invoice_number': inv_number,
+                'invoice_date': inv_date,
+                'invoice_date_display': format_date_for_invoice(inv_date),
+                'buyer_name': buyer['buyer_name'],
+                'buyer_gstin': buyer.get('gstin', ''),
+                'buyer_details': buyer.get('buyer_details', []),
+                'ewaybill_number': inv.get('ewaybill_number', ''),
+                'ewaybill_date': inv.get('ewaybill_date', ''),
+                'ewaybill_date_display': format_date_for_invoice(inv.get('ewaybill_date')) if inv.get('ewaybill_date') else '',
+                'ship_from_details': ship_from_lines,
+                'ship_to_enabled': True,
+                'ship_to_details': ship_to_lines,
+                'digitally_signed': True,
+                'items': items,
+                'transport_mode': transport,
+                'delivery_charge': delivery,
+                'tax_type': tax_type,
+                'display_tax_type': totals['display_tax_type'],
+                'tax_rate_igst': totals['igst_rate'],
+                'tax_rate_cgst': totals['cgst_rate'],
+                'tax_rate_sgst': totals['sgst_rate'],
+                **totals
+            }
+
+            excel_bytes = generate_invoice_excel(invoice_data)
+            safe_buyer = ''.join(c if c.isalnum() else '_' for c in buyer['buyer_name'][:20])
+            filename = f"Invoice_{inv_number.replace('/', '-')}_{inv_date}_{safe_buyer}.xlsx"
+            xlsx_url = storage.upload_invoice_xlsx(excel_bytes, filename)
+
+            pdf_filename = filename.replace('.xlsx', '.pdf')
+            pdf_bytes = generate_pdf_from_excel(excel_bytes, filename)
+            pdf_url = ''
+            if pdf_bytes:
+                pdf_url = storage.upload_invoice_pdf(pdf_bytes, pdf_filename)
+
+            invoice_record = {
+                'invoice_number': inv_number,
+                'invoice_date': inv_date,
+                'buyer_name': buyer['buyer_name'],
+                'buyer_gstin': buyer.get('gstin', ''),
+                'items': items,
+                'subtotal': totals['subtotal'],
+                'tax_type': tax_type,
+                'display_tax_type': totals['display_tax_type'],
+                'tax_rate_igst': totals['igst_rate'],
+                'tax_rate_cgst': totals['cgst_rate'],
+                'tax_rate_sgst': totals['sgst_rate'],
+                'tax_amount': totals['tax_amount'],
+                'total_amount': totals['rounded_total'],
+                'transport_mode': transport,
+                'file_url': xlsx_url,
+                'pdf_url': pdf_url,
+                'ewaybill_number': inv.get('ewaybill_number', ''),
+                'ewaybill_date': inv.get('ewaybill_date', ''),
+                'ship_from_details': ship_from_lines,
+                'ship_to_enabled': True,
+                'ship_to_details': ship_to_lines,
+                'digitally_signed': True,
+                'delivery_charge': delivery,
+            }
+            try:
+                db.save_invoice(invoice_record)
+                if transport:
+                    db.add_transport_mode(transport)
+                if ship_from_text:
+                    db.add_dispatch_address(ship_from_text)
+            except Exception as se:
+                app.logger.warning("Could not sync to Sheets: %s", se)
+
+            excel_download_url = url_for('download_xlsx', filename=filename)
+            pdf_download_url = url_for('download_pdf', filename=pdf_filename) if pdf_url else ''
+
+            results.append({
+                'invoice_number': inv_number,
+                'buyer_name': buyer['buyer_name'],
+                'total_amount': totals['rounded_total'],
+                'filename': filename,
+                'excel_url': excel_download_url,
+                'pdf_url': pdf_download_url,
+                'is_pdf': bool(pdf_url)
+            })
+
+        except Exception as err:
+            app.logger.error("Error generating bill in batch: %s", err)
+            errors.append(f"Bill #{idx+1}: {str(err)}")
+
+    if not results:
+        return jsonify({'success': False, 'error': '; '.join(errors) or 'Batch generation failed.'}), 400
+
+    return jsonify({
+        'success': True,
+        'created_count': len(results),
+        'results': results,
+        'errors': errors
+    })
+
+
 @app.errorhandler(404)
 def not_found(_error):
     """Render a friendly 404 page."""
@@ -2554,7 +2821,7 @@ def handle_unexpected_error(error):
 @app.route('/health')
 def health_check():
     """Health check endpoint for Cloud Run/App Engine."""
-    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+    return jsonify({'status': 'healthy', 'timestamp': get_ist_now().isoformat()})
 
 
 # ===================== MAIN =====================

@@ -326,23 +326,28 @@
 
         /* AI Hero Card (Above Step 1 on Form) */
         .ai-hero-card {
-            background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%);
+            background: linear-gradient(135deg, #f0fdf4 0%, #eef2ff 100%);
             border: 1.5px solid #c7d2fe;
             border-radius: var(--radius-lg);
-            padding: 14px 18px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 14px;
+            padding: 16px 18px;
             box-shadow: 0 2px 10px rgba(99, 102, 241, 0.08);
+            margin-bottom: 16px;
             cursor: pointer;
             transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .ai-hero-card:hover {
             border-color: #818cf8;
+            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.16);
             transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(99, 102, 241, 0.14);
+        }
+
+        .ai-hero-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
         }
 
         .ai-hero-left {
@@ -352,62 +357,114 @@
         }
 
         .ai-hero-icon-pulse {
-            width: 42px;
-            height: 42px;
+            width: 44px;
+            height: 44px;
             background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
             color: white;
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
             flex-shrink: 0;
         }
 
         .ai-hero-title {
-            font-size: 1.05rem;
-            font-weight: 700;
-            color: #312e81;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #1e1b4b;
             display: flex;
             align-items: center;
             gap: 6px;
         }
 
         .ai-hero-desc {
-            font-size: 0.82rem;
+            font-size: 0.85rem;
             color: #4338ca;
             margin-top: 2px;
         }
 
-        .btn-ai-hero-action {
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: var(--radius-md);
+        .ai-hero-safety-badge {
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            font-size: 0.8rem;
             font-weight: 700;
-            font-size: 0.9rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
+            padding: 5px 12px;
+            border-radius: 20px;
             white-space: nowrap;
-            box-shadow: 0 3px 10px rgba(99, 102, 241, 0.3);
-            flex-shrink: 0;
+        }
+
+        .ai-hero-buttons-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .btn-hero-action {
+            background: white;
+            border: 1.5px solid #c7d2fe;
+            border-radius: 12px;
+            padding: 12px 10px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #3730a3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            min-height: 48px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .btn-hero-action:hover {
+            background: #e0e7ff;
+            border-color: #6366f1;
+            transform: translateY(-1px);
+        }
+
+        .btn-hero-action:active {
+            transform: translateY(0);
+        }
+
+        .btn-hero-photo {
+            background: #4f46e5;
+            color: white;
+            border-color: #4338ca;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+        }
+
+        .btn-hero-photo:hover {
+            background: #4338ca;
+            color: white;
+        }
+
+        .hero-btn-icon {
+            font-size: 1.25rem;
         }
 
         @media (max-width: 640px) {
-            .ai-hero-card {
-                padding: 12px 14px;
+            .ai-hero-main {
                 flex-direction: column;
-                align-items: stretch;
-                gap: 10px;
+                align-items: flex-start;
+                gap: 8px;
             }
-            .btn-ai-hero-action {
-                width: 100%;
-                justify-content: center;
-                padding: 10px;
+            .ai-hero-safety-badge {
+                align-self: flex-start;
+            }
+            .ai-hero-buttons-grid {
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 8px;
+            }
+            .btn-hero-action {
+                padding: 10px 4px;
+                font-size: 0.85rem;
+                flex-direction: column;
+                gap: 4px;
+                min-height: 52px;
             }
         }
 
@@ -863,13 +920,13 @@
             background: var(--slate-50);
             color: var(--slate-700);
             font-weight: 700;
-            padding: 10px 12px;
+            padding: 12px 10px;
             border-bottom: 1.5px solid var(--slate-200);
             white-space: nowrap;
         }
 
         .items-table td {
-            padding: 8px 10px;
+            padding: 8px 8px;
             border-bottom: 1px solid var(--slate-100);
             vertical-align: middle;
         }
@@ -881,55 +938,357 @@
             border: 1px solid var(--slate-200);
             border-radius: 6px;
             outline: none;
-            min-height: 44px;
+            min-height: 46px;
+            box-sizing: border-box;
         }
 
-        .item-input:focus {
+        .item-select {
+            min-height: 46px;
+            height: 46px;
+            background-color: #ffffff;
+            border: 1px solid var(--slate-200);
+            border-radius: 6px;
+            padding: 0 10px;
+            font-size: 0.96rem;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .item-input:focus, .item-select:focus {
             border-color: var(--primary);
             box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
         }
 
-        /* Mobile Card formatting for item rows on phones */
-        @media (max-width: 640px) {
-            .items-table, .items-table thead, .items-table tbody, .items-table th, .items-table td, .items-table tr {
-                display: block;
+        .mobile-field-label,
+        .cell-header {
+            display: none !important;
+        }
+
+        .cell-desktop-num {
+            text-align: center;
+            font-weight: 600;
+            color: var(--slate-400);
+            width: 36px;
+        }
+
+        .cell-desc { min-width: 180px; }
+        .cell-bags { width: 85px; min-width: 75px; }
+        .cell-unit { width: 115px; min-width: 105px; }
+        .cell-qty { width: 110px; min-width: 95px; }
+        .cell-rate { width: 105px; min-width: 95px; }
+        .cell-hsn { width: 95px; min-width: 85px; }
+        .cell-amount { width: 115px; text-align: right; }
+        .cell-desktop-action { width: 44px; text-align: center; }
+
+        .row-amount-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--slate-900);
+        }
+
+        /* Mobile Card Mode for Item Rows */
+        @media (max-width: 768px) {
+            .items-table-wrap {
+                border: none;
+                background: transparent;
+                overflow: visible;
             }
 
-            .items-table thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
+            .items-table, .items-table tbody {
+                display: block;
+                width: 100%;
+            }
+
+            .items-table thead,
+            .cell-desktop-num,
+            .cell-desktop-action {
+                display: none !important;
             }
 
             .items-table tr.item-row {
-                background: white;
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                background: #ffffff;
                 border: 1.5px solid var(--slate-200);
-                border-radius: 12px;
-                margin-bottom: 12px;
-                padding: 14px;
-                box-shadow: var(--shadow-sm);
+                border-radius: 14px;
+                padding: 16px;
+                margin-bottom: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             }
 
             .items-table td {
+                display: flex;
+                flex-direction: column;
+                padding: 0;
                 border: none;
-                padding: 4px 0;
+                width: 100% !important;
+                min-width: 0 !important;
             }
 
-            .item-mobile-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 8px;
-                margin-top: 6px;
+            .cell-header {
+                display: flex !important;
+                grid-column: 1 / -1;
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+                padding-bottom: 10px !important;
+                border-bottom: 1.5px solid var(--slate-100) !important;
+                margin-bottom: 4px;
             }
 
-            .item-mobile-actions {
+            .mobile-row-badge {
+                font-weight: 800;
+                font-size: 0.95rem;
+                color: var(--primary);
+                background: #eef2ff;
+                padding: 4px 12px;
+                border-radius: 20px;
+            }
+
+            .btn-trash-mobile {
+                background: #fee2e2;
+                color: #b91c1c;
+                border: 1px solid #fca5a5;
+                border-radius: 8px;
+                padding: 6px 14px;
+                font-weight: 700;
+                font-size: 0.85rem;
+                cursor: pointer;
+            }
+
+            .cell-desc {
+                grid-column: 1 / -1;
+            }
+
+            .mobile-field-label {
+                display: block !important;
+                font-size: 0.88rem;
+                font-weight: 700;
+                color: var(--slate-700);
+                margin-bottom: 6px;
+            }
+
+            .item-input {
+                min-height: 48px;
+                font-size: 1rem;
+                border: 1.5px solid var(--slate-200);
+                border-radius: 8px;
+                padding: 10px 12px;
+            }
+
+            .item-select {
+                min-height: 48px;
+                height: 48px;
+                font-size: 1rem;
+                border: 1.5px solid var(--slate-200);
+                border-radius: 8px;
+                padding: 10px 12px;
+                background-color: #ffffff;
+            }
+
+            .row-amount-display {
+                min-height: 48px;
                 display: flex;
                 align-items: center;
-                justify-content: space-between;
-                margin-top: 10px;
-                padding-top: 8px;
-                border-top: 1px dashed var(--slate-200);
+                font-family: 'JetBrains Mono', monospace;
+                font-weight: 800;
+                font-size: 1.1rem;
+                color: var(--slate-900);
+                background: var(--slate-50);
+                border: 1.5px solid var(--slate-200);
+                border-radius: 8px;
+                padding: 0 12px;
+                box-sizing: border-box;
             }
+        }
+
+        /* Global Toast & Multi-Bill Helper Styles */
+        .global-app-toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: #166534;
+            color: white;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 12px 24px;
+            border-radius: 30px;
+            box-shadow: 0 10px 25px rgba(22, 101, 52, 0.35);
+            z-index: 99999;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+            max-width: 90vw;
+            text-align: center;
+        }
+
+        .global-app-toast.visible {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .ai-modal-safety-banner {
+            background: #f0fdf4;
+            border-bottom: 1.5px solid #bbf7d0;
+            color: #166534;
+            font-size: 0.85rem;
+            font-weight: 700;
+            padding: 10px 16px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .ai-bill-card {
+            background: white;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        }
+
+        .ai-bill-card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--slate-100);
+            padding-bottom: 8px;
+        }
+
+        .ai-bill-badge {
+            background: #eef2ff;
+            color: #4f46e5;
+            font-weight: 800;
+            font-size: 0.8rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .ai-bill-inv-num {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.85rem;
+            color: var(--slate-600);
+        }
+
+        .ai-bill-status-saved {
+            background: #dcfce7;
+            color: #15803d;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .ai-bill-status-new {
+            background: #fef08a;
+            color: #854d0e;
+            font-weight: 700;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .ai-bill-party-name {
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--slate-900);
+            margin-top: 4px;
+        }
+
+        .ai-bill-party-sub {
+            font-size: 0.82rem;
+            color: var(--slate-500);
+            margin-top: 2px;
+        }
+
+        .btn-bill-listen, .btn-bubble-listen {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--slate-700);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-shrink: 0;
+            transition: all 0.15s ease;
+        }
+
+        .btn-bill-listen:hover, .btn-bubble-listen:hover {
+            background: #e2e8f0;
+            color: var(--slate-900);
+        }
+
+        .ai-bill-items-list {
+            margin: 8px 0;
+        }
+
+        .ai-bill-item-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px dashed var(--slate-100);
+            font-size: 0.9rem;
+        }
+
+        .ai-bill-bag-tag {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            margin-left: 6px;
+            font-weight: 600;
+        }
+
+        .ai-bill-summary-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 8px;
+            margin-top: 4px;
+            border-top: 1.5px solid var(--slate-100);
+            font-size: 0.88rem;
+            color: var(--slate-600);
+        }
+
+        .ai-bill-total-highlight {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.05rem;
+            color: #166534;
+        }
+
+        .btn-ai-fill-bill, .btn-ai-autofill {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 18px;
+            font-weight: 800;
+            font-size: 0.95rem;
+            width: 100%;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(79, 70, 229, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-ai-fill-bill:hover, .btn-ai-autofill:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
         }
 
         .btn-trash {
@@ -1977,19 +2336,34 @@
         <!-- LEFT COLUMN: BILLING FORM -->
         <div class="form-column" id="mobile_form_col">
 
-            <!-- AI SMART SLIP ASSISTANT HERO CARD -->
-            <div class="ai-hero-card" onclick="openAiModal()">
-                <div class="ai-hero-left">
-                    <div class="ai-hero-icon-pulse">✨</div>
-                    <div>
-                        <div class="ai-hero-title">Smart Slip Assistant</div>
-                        <div class="ai-hero-desc">Snap rough slip / card or speak into mic — AI reads and auto-fills the bill</div>
+            <!-- AI CHIT & SLIP ASSISTANT HERO CARD -->
+            <div class="ai-hero-card" onclick="openAiModal()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); openAiModal();}">
+                <div class="ai-hero-main">
+                    <div class="ai-hero-left">
+                        <div class="ai-hero-icon-pulse">✨</div>
+                        <div>
+                            <div class="ai-hero-title">Chit & Slip Assistant</div>
+                            <div class="ai-hero-desc">Take a photo of paper chits or speak details. Single or multiple bills on one slip supported.</div>
+                        </div>
+                    </div>
+                    <div class="ai-hero-safety-badge">
+                        <span>🛡️ Safe: Nothing is saved automatically</span>
                     </div>
                 </div>
-                <button type="button" class="btn btn-ai-hero-action" onclick="event.stopPropagation(); openAiModal()">
-                    <span>📷</span>
-                    <span>Scan or Speak</span>
-                </button>
+                <div class="ai-hero-buttons-grid">
+                    <button type="button" class="btn-hero-action btn-hero-photo" onclick="event.stopPropagation(); triggerHeroCamera()">
+                        <span class="hero-btn-icon">📷</span>
+                        <span class="hero-btn-label">Take Photo</span>
+                    </button>
+                    <button type="button" class="btn-hero-action btn-hero-upload" onclick="event.stopPropagation(); triggerHeroUpload()">
+                        <span class="hero-btn-icon">📁</span>
+                        <span class="hero-btn-label">Upload Slip</span>
+                    </button>
+                    <button type="button" class="btn-hero-action btn-hero-speak" onclick="event.stopPropagation(); triggerHeroSpeak()">
+                        <span class="hero-btn-icon">🎙️</span>
+                        <span class="hero-btn-label">Speak Details</span>
+                    </button>
+                </div>
             </div>
 
             <form action="{{ url_for('generate_invoice') }}" method="POST" id="invoiceForm">
@@ -2145,12 +2519,13 @@
                             <thead>
                                 <tr>
                                     <th style="width: 36px; text-align: center;">#</th>
-                                    <th>Description of Goods</th>
-                                    <th style="width: 140px;">Packaging</th>
-                                    <th style="width: 90px;">HSN</th>
-                                    <th style="width: 110px;">Qty (Kg)</th>
-                                    <th style="width: 100px;">Rate (₹)</th>
-                                    <th style="width: 110px; text-align: right;">Amount (₹)</th>
+                                    <th>Item Name</th>
+                                    <th style="width: 85px;">Bags</th>
+                                    <th style="width: 115px;">Unit</th>
+                                    <th style="width: 110px;">Weight (Kg)</th>
+                                    <th style="width: 105px;">Rate (₹)</th>
+                                    <th style="width: 95px;">HSN Code</th>
+                                    <th style="width: 115px; text-align: right;">Amount (₹)</th>
                                     <th style="width: 44px; text-align: center;"></th>
                                 </tr>
                             </thead>
@@ -2336,38 +2711,40 @@
         </div>
     </div>
 
-    <!-- SMART SLIP ASSISTANT MODAL (AGENTIC CONVERSATIONAL CHAT) -->
+    <!-- CHIT & SLIP ASSISTANT MODAL -->
     <div id="ai_modal" class="modal-overlay" style="display: none;">
         <div class="modal-window" style="max-width: 680px; height: 90vh; max-height: 820px; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
             <div class="modal-header-modern" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; flex-shrink: 0; border-radius: var(--radius-xl) var(--radius-xl) 0 0;">
                 <div class="modal-title-group">
                     <div class="modal-icon-badge" style="background: rgba(255,255,255,0.25);">✨</div>
                     <div>
-                        <h2 class="modal-title" style="color: white; font-size: 1.2rem;">AI Billing Assistant</h2>
-                        <p class="modal-subtitle" style="color: rgba(255,255,255,0.9); font-size: 0.85rem;">Snap rough slips, speak instructions, or manage buyer directory</p>
+                        <h2 class="modal-title" style="color: white; font-size: 1.2rem;">Chit & Slip Assistant</h2>
+                        <p class="modal-subtitle" style="color: rgba(255,255,255,0.9); font-size: 0.85rem;">Take photo of chits, upload slips, or speak bill details</p>
                     </div>
                 </div>
                 <button type="button" class="modal-close-btn" onclick="closeAiModal()" style="background: rgba(255,255,255,0.25); color: white;">&times;</button>
             </div>
 
+            <!-- Reassurance Safety Banner -->
+            <div class="ai-modal-safety-banner">
+                <span>🛡️ Nothing is saved automatically. Review and edit everything on screen before generating.</span>
+            </div>
+
             <!-- Quick Action Chips Bar -->
             <div class="ai-chips-bar" style="padding: 10px 16px; background: #f8fafc; border-bottom: 1px solid var(--slate-200); display: flex; gap: 8px; overflow-x: auto; flex-shrink: 0;">
-                <label class="ai-chip" style="cursor: pointer;">
+                <label class="ai-chip" style="cursor: pointer; background: #e0e7ff; color: #3730a3; font-weight: 700;">
                     <span>📷 Take Photo</span>
                     <input type="file" id="ai_camera_input" accept="image/*" capture="environment" style="display: none;" onchange="handleAiFileSelect(event)">
                 </label>
-                <label class="ai-chip" style="cursor: pointer;">
+                <label class="ai-chip" style="cursor: pointer; background: #f1f5f9; color: #334155; font-weight: 700;">
                     <span>📁 Upload Slip</span>
                     <input type="file" id="ai_file_input" accept="image/*" multiple style="display: none;" onchange="handleAiFileSelect(event)">
                 </label>
-                <button type="button" class="ai-chip" id="btn_chip_mic" onclick="toggleVoiceInput()">
-                    <span id="chip_mic_icon">🎙️ Speak</span>
+                <button type="button" class="ai-chip" id="btn_chip_mic" onclick="toggleVoiceInput()" style="background: #f1f5f9; color: #334155; font-weight: 700;">
+                    <span id="chip_mic_icon">🎙️ Speak Details</span>
                 </button>
                 <button type="button" class="ai-chip" onclick="prefillAiPrompt('Create a new buyer named ')">
                     <span>🏢 New Party</span>
-                </button>
-                <button type="button" class="ai-chip" onclick="prefillAiPrompt('Use next invoice number ')">
-                    <span>⚡ Next Bill #</span>
                 </button>
             </div>
 
@@ -2380,15 +2757,15 @@
                 <div class="ai-chat-bubble ai-bubble-assistant">
                     <div class="ai-bubble-avatar">✨</div>
                     <div class="ai-bubble-content">
-                        <div style="font-weight: 700; margin-bottom: 2px; color: var(--primary);">AI Billing Assistant</div>
-                        <div>Namaste! Snap a rough slip, choose a chit photo, or tap <strong>🎙️ Speak</strong> to dictate invoice details or create a new buyer profile.</div>
+                        <div style="font-weight: 700; margin-bottom: 4px; color: var(--primary);">Chit & Slip Assistant</div>
+                        <div>Take a photo of your paper chit, upload a slip from your gallery, or speak bill details. Single or multiple bills on one slip are supported. Nothing is saved until you confirm!</div>
                     </div>
                 </div>
             </div>
 
             <!-- Loading Indicator -->
-            <div id="ai_status_spinner" style="display: none; padding: 8px 16px; background: #eef2ff; color: #4338ca; font-size: 0.9rem; font-weight: 600; text-align: center; border-top: 1px solid #c7d2fe; flex-shrink: 0;">
-                ⏳ Assistant is reading slip with Gemini Vision... Please wait.
+            <div id="ai_status_spinner" style="display: none; padding: 10px 16px; background: #eef2ff; color: #4338ca; font-size: 0.92rem; font-weight: 700; text-align: center; border-top: 1px solid #c7d2fe; flex-shrink: 0;">
+                ⏳ Reading slip details... Please wait a few seconds.
             </div>
 
             <!-- Bottom Composer Bar -->
@@ -2674,19 +3051,34 @@
             }
         }
 
-        // ================= DATE BUTTONS =================
+        // ================= DATE BUTTONS (IST ASIA/KOLKATA) =================
+        function getISTDateString(offsetDays = 0) {
+            try {
+                const target = new Date(Date.now() + (offsetDays * 86400000));
+                const formatter = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'Asia/Kolkata',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit'
+                });
+                return formatter.format(target);
+            } catch (e) {
+                const d = new Date();
+                d.setDate(d.getDate() + offsetDays);
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, '0');
+                const dd = String(d.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+        }
+
         function setDateToday() {
-            document.getElementById('invoice_date').value = serverTodayDate;
+            document.getElementById('invoice_date').value = getISTDateString(0);
             updatePreview();
         }
 
         function setDateTomorrow() {
-            const d = new Date();
-            d.setDate(d.getDate() + 1);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            document.getElementById('invoice_date').value = `${yyyy}-${mm}-${dd}`;
+            document.getElementById('invoice_date').value = getISTDateString(1);
             updatePreview();
         }
 
@@ -2800,13 +3192,13 @@
 
             let desc = data.description || 'Aluminium Utensils';
             let bags = data.bags || '';
-            let unit = data.unit || '';
+            let unit = data.unit || 'Bags';
 
             // Clean up description if it already has packaging suffix or leading numbering
             const packMatch = desc.match(/\(\s*([\d\.]+)\s*([A-Za-z]+)\s*\)/);
             if (packMatch) {
                 if (!bags) bags = packMatch[1];
-                if (!unit) unit = packMatch[2];
+                if (!data.unit) unit = packMatch[2];
                 desc = desc.replace(/\s*\(\s*[\d\.]+\s*[A-Za-z]+\s*\)/, '').trim();
             }
             desc = desc.replace(/^\d+\.\s*/, '').trim();
@@ -2816,34 +3208,68 @@
             const rate = data.rate !== undefined ? data.rate : '';
             const amt = (parseFloat(qty) || 0) * (parseFloat(rate) || 0);
 
-            if (!unit && (bags || qty)) {
-                unit = 'Bags';
-            }
+            // Default packaging unit to Bags
+            if (!unit || unit === '') unit = 'Bags';
 
             tr.innerHTML = `
-                <td style="text-align: center; font-weight: 600; color: var(--slate-400);" class="row-num">${itemRowIndex}</td>
-                <td>
-                    <input type="text" name="item_description[]" class="item-input" value="${escapeHtml(desc)}" placeholder="Description of goods" required oninput="updatePreview()">
+                <!-- Mobile Card Header: shown only on mobile -->
+                <td class="cell-header">
+                    <span class="mobile-row-badge">Item #${itemRowIndex}</span>
+                    <button type="button" class="btn-trash-mobile" onclick="removeItemRow(${itemRowIndex})" title="Remove item">✕ Remove</button>
                 </td>
-                <td>
-                    <div style="display: flex; gap: 4px; align-items: center;">
-                        <input type="text" name="item_bags[]" class="item-input mono" value="${escapeHtml(bags)}" placeholder="Count" style="width: 52px; text-align: center;" oninput="handlePackagingInput(${itemRowIndex})">
-                        <input type="text" name="item_unit[]" class="item-input" list="packaging_units_list" value="${escapeHtml(unit)}" placeholder="Unit" style="width: 78px; text-align: center;" oninput="updatePreview()">
-                    </div>
+
+                <!-- Desktop row number: shown only on desktop -->
+                <td class="cell-desktop-num row-num">${itemRowIndex}</td>
+
+                <!-- Item Description -->
+                <td class="cell-desc">
+                    <label class="mobile-field-label">Item Name</label>
+                    <input type="text" name="item_description[]" class="item-input" value="${escapeHtml(desc)}" placeholder="Item Name (e.g. Aluminium Utensils)" required oninput="updatePreview()">
                 </td>
-                <td>
-                    <input type="text" name="item_hsn[]" class="item-input mono" value="${escapeHtml(hsn)}" placeholder="HSN" oninput="updatePreview()">
+
+                <!-- Packaging / Bags -->
+                <td class="cell-bags">
+                    <label class="mobile-field-label">Bags</label>
+                    <input type="text" inputmode="numeric" name="item_bags[]" class="item-input mono" value="${escapeHtml(bags)}" placeholder="e.g. 2" oninput="updatePreview()">
                 </td>
-                <td>
-                    <input type="number" step="any" name="item_quantity[]" class="item-input mono" value="${qty}" placeholder="Qty (Kg)" required oninput="handleItemCalc(${itemRowIndex})">
+
+                <!-- Packaging Unit Dropdown defaulting to Bags -->
+                <td class="cell-unit">
+                    <label class="mobile-field-label">Unit</label>
+                    <select name="item_unit[]" class="item-input item-select" onchange="updatePreview()">
+                        <option value="Bags" ${unit === 'Bags' ? 'selected' : ''}>Bags</option>
+                        <option value="Bundles" ${unit === 'Bundles' ? 'selected' : ''}>Bundles</option>
+                        <option value="Boxes" ${unit === 'Boxes' ? 'selected' : ''}>Boxes</option>
+                        <option value="Pieces" ${unit === 'Pieces' ? 'selected' : ''}>Pieces</option>
+                    </select>
                 </td>
-                <td>
-                    <input type="number" step="any" name="item_rate[]" class="item-input mono" value="${rate}" placeholder="Rate (₹)" required oninput="handleItemCalc(${itemRowIndex})">
+
+                <!-- Weight (Kg) -->
+                <td class="cell-qty">
+                    <label class="mobile-field-label">Weight (Kg)</label>
+                    <input type="number" step="any" name="item_quantity[]" class="item-input mono" value="${qty}" placeholder="0.00" required oninput="handleItemCalc(${itemRowIndex})">
                 </td>
-                <td style="text-align: right; font-weight: 600; font-family: 'JetBrains Mono', monospace;" id="row_amount_${itemRowIndex}">
-                    ₹${amt.toFixed(2)}
+
+                <!-- Rate (₹) -->
+                <td class="cell-rate">
+                    <label class="mobile-field-label">Rate (₹)</label>
+                    <input type="number" step="any" name="item_rate[]" class="item-input mono" value="${rate}" placeholder="0.00" required oninput="handleItemCalc(${itemRowIndex})">
                 </td>
-                <td style="text-align: center;">
+
+                <!-- HSN Code -->
+                <td class="cell-hsn">
+                    <label class="mobile-field-label">HSN Code</label>
+                    <input type="text" name="item_hsn[]" class="item-input mono" value="${escapeHtml(hsn)}" placeholder="76151030" oninput="updatePreview()">
+                </td>
+
+                <!-- Amount (₹) -->
+                <td class="cell-amount">
+                    <label class="mobile-field-label">Amount (₹)</label>
+                    <div class="row-amount-display" id="row_amount_${itemRowIndex}">₹${amt.toFixed(2)}</div>
+                </td>
+
+                <!-- Desktop Remove Button: shown only on desktop -->
+                <td class="cell-desktop-action">
                     <button type="button" class="btn-trash" onclick="removeItemRow(${itemRowIndex})" title="Remove item">✕</button>
                 </td>
             `;
@@ -2862,37 +3288,26 @@
         }
 
         function renumberItemRows() {
-            const rows = document.querySelectorAll('#items_container tr');
+            const rows = document.querySelectorAll('#items_container tr.item-row');
             rows.forEach((r, i) => {
-                const numCell = r.querySelector('.row-num');
+                const numCell = r.querySelector('.cell-desktop-num');
                 if (numCell) numCell.textContent = i + 1;
+                const mobileBadge = r.querySelector('.mobile-row-badge');
+                if (mobileBadge) mobileBadge.textContent = `Item #${i + 1}`;
             });
         }
 
         function handleItemCalc(idx) {
             const row = document.getElementById(`item_row_${idx}`);
             if (!row) return;
-            const qInput = row.querySelector('input[name="item_quantity[]"]');
-            const q = parseFloat(qInput?.value) || 0;
+            const q = parseFloat(row.querySelector('input[name="item_quantity[]"]')?.value) || 0;
             const r = parseFloat(row.querySelector('input[name="item_rate[]"]')?.value) || 0;
             const amtCell = document.getElementById(`row_amount_${idx}`);
             if (amtCell) amtCell.textContent = `₹${(q * r).toFixed(2)}`;
-
-            const unitInput = row.querySelector('input[name="item_unit[]"]');
-            if (unitInput && !unitInput.value.trim() && qInput && qInput.value.trim()) {
-                unitInput.value = 'Bags';
-            }
             updatePreview();
         }
 
         function handlePackagingInput(idx) {
-            const row = document.getElementById(`item_row_${idx}`);
-            if (!row) return;
-            const bagsInput = row.querySelector('input[name="item_bags[]"]');
-            const unitInput = row.querySelector('input[name="item_unit[]"]');
-            if (unitInput && !unitInput.value.trim() && bagsInput && bagsInput.value.trim()) {
-                unitInput.value = 'Bags';
-            }
             updatePreview();
         }
 
@@ -3337,6 +3752,7 @@
                 }
 
                 lastExtractedAiData = res.data;
+                lastExtractedInvoices = (res.invoices && res.invoices.length > 0) ? res.invoices : (res.data ? [res.data] : []);
                 aiConversationHistory.push({ role: 'user', text: userText });
                 aiConversationHistory.push({ role: 'model', text: res.conversational_message });
 
@@ -3397,57 +3813,109 @@
 
         function renderAiAssistantThread(res) {
             const stream = document.getElementById('ai_chat_stream');
-            const d = res.data || {};
+            const invoices = (res.invoices && res.invoices.length > 0) ? res.invoices : (res.data ? [res.data] : []);
+            lastExtractedInvoices = invoices;
+            if (invoices.length > 0) {
+                lastExtractedAiData = invoices[0];
+            }
 
             const bubble = document.createElement('div');
             bubble.className = 'ai-chat-bubble ai-bubble-assistant';
 
-            const isNew = d.is_new_buyer || (!d.matched_profile_id && d.buyer_name);
-            const partyStatusHtml = isNew ? `
-                <div class="ai-party-card ai-party-new">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 700; color: #854d0e;">✨ New Buyer Profile Detected</span>
-                        <span style="font-size: 0.8rem; background: #fef08a; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Unsaved</span>
-                    </div>
-                    <div style="font-weight: 800; font-size: 1.05rem; color: #713f12;">${escapeHtml(d.buyer_name || 'New Party')}</div>
-                    <div style="font-size: 0.82rem; color: #854d0e;">
-                        GSTIN: <strong>${escapeHtml(d.gstin || 'None')}</strong> • State: <strong>${escapeHtml(d.state || '')} (${escapeHtml(d.state_code || '')})</strong>
-                    </div>
-                    <button type="button" class="btn-ai-save-buyer" onclick='saveNewBuyerFromAi(this, ${JSON.stringify(d).replace(/'/g, "&#39;")})'>
-                        💾 Save New Buyer to Directory
-                    </button>
-                </div>
-            ` : `
-                <div class="ai-party-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 700; color: #166534;">✓ Matched Saved Party</span>
-                        <span style="font-size: 0.8rem; background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 10px; font-weight: 600;">Verified</span>
-                    </div>
-                    <div style="font-weight: 800; font-size: 1.05rem; color: #14532d;">${escapeHtml(d.buyer_name || '-')}</div>
-                </div>
-            `;
+            const msgText = res.conversational_message || (invoices.length > 1 ? `Found ${invoices.length} bills from your chit.` : 'Found bill details from your slip.');
 
-            const items = d.items || [];
-            let itemsRows = items.map((it, idx) => {
-                const amt = (parseFloat(it.quantity) || 0) * (parseFloat(it.rate) || 0);
-                const bagsTxt = it.bags ? `<span style="background:var(--slate-100); padding:2px 6px; border-radius:6px; font-size:0.8rem; margin-left:6px;">${escapeHtml(it.bags)} ${escapeHtml(it.unit || 'Bags')}</span>` : '';
-                return `
-                    <div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed var(--slate-100); font-size: 0.88rem;">
-                        <span><strong>${idx + 1}.</strong> ${escapeHtml(it.description || 'Utensils')}${bagsTxt}</span>
-                        <span>${it.quantity || 0} kg @ ₹${it.rate || 0} = <strong>₹${amt.toFixed(2)}</strong></span>
+            let batchBarHtml = '';
+            if (invoices.length > 1) {
+                batchBarHtml = `
+                    <div class="ai-batch-action-bar">
+                        <div style="font-size: 0.95rem; font-weight: 700; color: #1e1b4b;">
+                            ⚡ Found ${invoices.length} Bills on this Chit
+                        </div>
+                        <button type="button" id="btn_generate_all_batch" class="btn-generate-all" onclick="generateAllBillsBatch()">
+                            <span>🚀 Generate All (${invoices.length} Bills at Once)</span>
+                        </button>
                     </div>
                 `;
-            }).join('');
+            }
+
+            let invoicesHtml = '';
+            invoices.forEach((inv, idx) => {
+                const isNew = inv.is_new_buyer || (!inv.matched_profile_id && inv.buyer_name);
+                const items = inv.items || [];
+                let itemsSubtotal = 0;
+                let itemsListHtml = items.map((it, i) => {
+                    const amt = (parseFloat(it.quantity) || 0) * (parseFloat(it.rate) || 0);
+                    itemsSubtotal += amt;
+                    const unitName = it.unit || 'Bags';
+                    const bagsBadge = it.bags ? `<span class="ai-bill-bag-tag">${escapeHtml(it.bags)} ${escapeHtml(unitName)}</span>` : '';
+                    return `
+                        <div class="ai-bill-item-row">
+                            <span><strong>${i + 1}.</strong> ${escapeHtml(it.description || 'Aluminium Utensils')}${bagsBadge}</span>
+                            <span>${(parseFloat(it.quantity) || 0).toFixed(3)} kg @ ₹${(parseFloat(it.rate) || 0).toFixed(2)} = <strong>₹${amt.toFixed(2)}</strong></span>
+                        </div>
+                    `;
+                }).join('');
+
+                const taxType = inv.tax_type || 'IGST';
+                let taxRate = 0.05;
+                let totalWithTax = itemsSubtotal * (1 + taxRate) + (parseFloat(inv.delivery_charge) || 0);
+
+                const fillButtonText = invoices.length > 1 ? `👉 Fill Bill #${idx + 1} (${escapeHtml(inv.buyer_name || 'Party')})` : `👉 Fill This Bill into Form`;
+
+                invoicesHtml += `
+                    <div class="ai-bill-card">
+                        <div class="ai-bill-card-top">
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span class="ai-bill-badge">${invoices.length > 1 ? `Bill #${idx + 1}` : 'Bill'}</span>
+                                    <span class="ai-bill-inv-num">#${escapeHtml(inv.invoice_number || '')}</span>
+                                    ${isNew ? '<span class="ai-bill-status-new">✨ New Party</span>' : '<span class="ai-bill-status-saved">✓ Saved Party</span>'}
+                                </div>
+                                <div class="ai-bill-party-name">${escapeHtml(inv.buyer_name || 'Unnamed Party')}</div>
+                                <div class="ai-bill-party-sub">Date: ${escapeHtml(inv.invoice_date || '')} • Transport: ${escapeHtml(inv.transport_mode || 'By Road')}</div>
+                            </div>
+                            <button type="button" class="btn-bill-listen" onclick="speakInvoice(${idx})" title="Listen aloud">
+                                <span>🔊</span>
+                                <span>Listen</span>
+                            </button>
+                        </div>
+
+                        ${isNew ? `
+                            <div style="margin: 8px 0;">
+                                <button type="button" class="btn-ai-save-buyer" onclick='saveNewBuyerFromAi(this, ${JSON.stringify(inv).replace(/'/g, "&#39;")})'>
+                                    💾 Save New Buyer to Directory
+                                </button>
+                            </div>
+                        ` : ''}
+
+                        <div class="ai-bill-items-list">
+                            ${itemsListHtml}
+                        </div>
+
+                        <div class="ai-bill-summary-bar">
+                            <span>Tax: <strong>${escapeHtml(taxType)} (5%)</strong></span>
+                            <span>Items: <strong>₹${itemsSubtotal.toFixed(2)}</strong></span>
+                            <span>Total: <strong class="ai-bill-total-highlight">₹${totalWithTax.toFixed(2)}</strong></span>
+                        </div>
+
+                        <div style="margin-top: 10px;">
+                            <button type="button" class="btn-ai-fill-bill" onclick="applyInvoiceToForm(${idx})">
+                                <span>${fillButtonText}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
 
             const clarHtml = (res.has_clarifications && res.clarifications && res.clarifications.length > 0) ? `
-                <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px; margin-top: 4px;">
-                    <div style="font-weight: 700; color: #1d4ed8; margin-bottom: 4px; font-size: 0.88rem;">❓ Tap to answer or verify:</div>
+                <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 12px; margin-top: 8px;">
+                    <div style="font-weight: 700; color: #1d4ed8; margin-bottom: 6px; font-size: 0.9rem;">❓ Clarifications:</div>
                     ${res.clarifications.map(c => `<button type="button" class="ai-clarification-chip" onclick="submitAiMessage('${escapeHtml(c).replace(/'/g, "\\'")}')">${escapeHtml(c)}</button>`).join('')}
                 </div>
             ` : '';
 
             const dupHtml = (res.is_duplicate_invoice && res.duplicate_warning) ? `
-                <div style="background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 8px; padding: 8px 12px; font-size: 0.85rem; font-weight: 600;">
+                <div style="background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e; border-radius: 10px; padding: 10px 14px; font-size: 0.88rem; font-weight: 600; margin-bottom: 8px;">
                     ⚠️ ${escapeHtml(res.duplicate_warning)}
                 </div>
             ` : '';
@@ -3455,26 +3923,16 @@
             bubble.innerHTML = `
                 <div class="ai-bubble-avatar">✨</div>
                 <div class="ai-bubble-content" style="width: 100%;">
-                    <div>${escapeHtml(res.conversational_message || 'I have extracted the invoice details.')}</div>
-                    ${dupHtml}
-                    ${partyStatusHtml}
-                    <div class="ai-breakdown-card">
-                        <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--slate-700); font-size: 0.85rem; border-bottom: 1px solid var(--slate-200); padding-bottom: 4px;">
-                            <span>📦 Goods & Items (${items.length})</span>
-                            <span>🚚 ${escapeHtml(d.transport_mode || 'By Road')}</span>
-                        </div>
-                        <div style="margin: 4px 0;">${itemsRows}</div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--slate-600); border-top: 1px dashed var(--slate-200); padding-top: 4px;">
-                            <span>Tax: <strong>${escapeHtml(d.tax_type || 'IGST')}</strong></span>
-                            <span>Delivery: ₹${d.delivery_charge || 0}</span>
-                        </div>
-                    </div>
-                    ${clarHtml}
-                    <div style="margin-top: 6px;">
-                        <button type="button" class="btn-ai-autofill" onclick="applyAiDataToForm()">
-                            <span>⚡ Fill Invoice Form</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                        <div style="font-size: 0.96rem; line-height: 1.4; color: var(--slate-800);">${escapeHtml(msgText)}</div>
+                        <button type="button" class="btn-bubble-listen" onclick="speakAiMessage('${escapeHtml(msgText).replace(/'/g, "\\'")}')" title="Listen to this message">
+                            🔊 Listen
                         </button>
                     </div>
+                    ${dupHtml}
+                    ${batchBarHtml}
+                    ${invoicesHtml}
+                    ${clarHtml}
                 </div>
             `;
 
@@ -3482,11 +3940,20 @@
             stream.scrollTop = stream.scrollHeight;
         }
 
-        function applyAiDataToForm() {
-            if (!lastExtractedAiData) return;
-            const d = lastExtractedAiData;
+        function applyInvoiceToForm(idx = 0, updateQueue = true) {
+            const invoices = (lastExtractedInvoices && lastExtractedInvoices.length > 0) ? lastExtractedInvoices : (lastExtractedAiData ? [lastExtractedAiData] : []);
+            if (!invoices[idx]) return;
+            const d = invoices[idx];
+            lastExtractedAiData = d;
+
+            if (updateQueue && invoices.length > 1) {
+                sessionStorage.setItem('pending_bills_queue', JSON.stringify(invoices));
+                sessionStorage.setItem('current_bill_index', idx.toString());
+                showQueueBanner(idx, invoices);
+            }
 
             if (d.invoice_number) document.getElementById('invoice_number').value = d.invoice_number;
+            if (d.invoice_date) document.getElementById('invoice_date').value = d.invoice_date;
 
             if (d.created_profile) {
                 if (!buyerProfiles.some(b => b.profile_id === d.created_profile.profile_id)) {
@@ -3532,10 +3999,208 @@
                 switchMobileView('form');
             }
 
-            setTimeout(() => {
-                alert('✓ Form filled from slip! You can inspect or change anything on screen before generating.');
-            }, 250);
+            const formCol = document.getElementById('mobile_form_col');
+            if (formCol) formCol.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            showBannerNotification(`✓ Bill #${idx + 1} (${d.buyer_name || 'Party'}) loaded! Review and tap Generate Bill.`);
         }
+
+        async function generateAllBillsBatch() {
+            const invoices = (lastExtractedInvoices && lastExtractedInvoices.length > 0) ? lastExtractedInvoices : (lastExtractedAiData ? [lastExtractedAiData] : []);
+            if (!invoices.length) return;
+
+            const btn = document.getElementById('btn_generate_all_batch');
+            const origHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `⏳ Generating ${invoices.length} Bills... Please wait`;
+            }
+
+            try {
+                const response = await fetch('/api/generate_batch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ invoices: invoices })
+                });
+
+                const res = await response.json();
+                if (!response.ok || !res.success) {
+                    throw new Error(res.error || 'Batch generation failed');
+                }
+
+                renderBatchSuccessResults(res.results || []);
+
+            } catch (err) {
+                console.error(err);
+                alert('Could not generate batch: ' + err.message);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origHtml;
+                }
+            }
+        }
+
+        function renderBatchSuccessResults(results) {
+            closeAiModal();
+            let modal = document.getElementById('batch_success_modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'batch_success_modal';
+                modal.className = 'modal-overlay';
+                document.body.appendChild(modal);
+            }
+
+            let cardsHtml = results.map((r, i) => `
+                <div style="background: white; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <div style="font-weight: 800; font-size: 1.1rem; color: #1e293b;">
+                            Bill #${r.invoice_number}: ${escapeHtml(r.buyer_name)}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #166534; font-weight: 700; margin-top: 2px;">
+                            Total Amount: ₹${(parseFloat(r.total_amount) || 0).toFixed(2)}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        ${r.pdf_url ? `<a href="${r.pdf_url}" target="_blank" class="btn btn-pdf" style="padding: 10px 16px; font-size: 0.9rem; margin: 0; min-width: 0; width: auto;">📄 Download PDF</a>` : ''}
+                        ${r.excel_url ? `<a href="${r.excel_url}" target="_blank" class="btn btn-excel" style="padding: 10px 16px; font-size: 0.9rem; margin: 0; min-width: 0; width: auto;">📊 Download Excel</a>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            modal.innerHTML = `
+                <div class="modal-window" style="max-width: 700px; padding: 24px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <div style="font-size: 3rem; margin-bottom: 8px;">🎉</div>
+                        <h2 style="font-size: 1.6rem; color: #166534; margin: 0;">All ${results.length} Bills Generated!</h2>
+                        <p style="color: #64748b; margin-top: 4px;">Saved to records, Excel and PDF are ready for download:</p>
+                    </div>
+                    <div style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">
+                        ${cardsHtml}
+                    </div>
+                    <button type="button" class="btn btn-primary" style="width: 100%; margin: 0; padding: 16px; font-size: 1.15rem;" onclick="document.getElementById('batch_success_modal').style.display='none'">
+                        ✓ Done / Back to Workspace
+                    </button>
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+
+        function speakInvoice(idx) {
+            const invoices = (lastExtractedInvoices && lastExtractedInvoices.length > 0) ? lastExtractedInvoices : (lastExtractedAiData ? [lastExtractedAiData] : []);
+            if (!invoices[idx]) return;
+            const inv = invoices[idx];
+            const items = inv.items || [];
+            let itemsSpoken = items.map(it => `${it.bags ? it.bags + ' bags, ' : ''}${it.quantity} kilo aluminium utensils at ${it.rate} rupees`).join('. ');
+            const textToSpeak = `Bill for ${inv.buyer_name || 'Party'}. Invoice number ${inv.invoice_number || ''}. ${itemsSpoken}. Tax is ${inv.tax_type || 'IGST'}.`;
+            speakAiText(textToSpeak);
+        }
+
+        function speakAiMessage(text) {
+            speakAiText(text);
+        }
+
+        function speakAiText(text) {
+            if (!('speechSynthesis' in window)) {
+                alert('Audio readout is not supported in this browser.');
+                return;
+            }
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices();
+            const voice = voices.find(v => v.lang === 'hi-IN' || v.lang === 'en-IN' || v.lang.startsWith('hi')) || null;
+            if (voice) utter.voice = voice;
+            utter.rate = 0.95;
+            window.speechSynthesis.speak(utter);
+        }
+
+        function showBannerNotification(msg) {
+            let toast = document.getElementById('global_app_toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'global_app_toast';
+                toast.className = 'global-app-toast';
+                document.body.appendChild(toast);
+            }
+            toast.textContent = msg;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 4000);
+        }
+
+        function triggerHeroCamera() {
+            openAiModal();
+            const cam = document.getElementById('ai_camera_input');
+            if (cam) cam.click();
+        }
+
+        function triggerHeroUpload() {
+            openAiModal();
+            const fileInput = document.getElementById('ai_file_input');
+            if (fileInput) fileInput.click();
+        }
+
+        function triggerHeroSpeak() {
+            openAiModal();
+            setTimeout(() => {
+                toggleVoiceInput();
+            }, 300);
+        }
+
+        function checkQueueOnPageLoad() {
+            try {
+                const queueStr = sessionStorage.getItem('pending_bills_queue');
+                const curIdxStr = sessionStorage.getItem('current_bill_index');
+                if (queueStr && curIdxStr !== null) {
+                    const queue = JSON.parse(queueStr);
+                    const curIdx = parseInt(curIdxStr, 10);
+                    if (queue && queue[curIdx]) {
+                        applyInvoiceToForm(curIdx, false);
+                        showQueueBanner(curIdx, queue);
+                    }
+                }
+            } catch (e) {
+                console.error('Queue check error:', e);
+            }
+        }
+
+        function showQueueBanner(curIdx, queue) {
+            let banner = document.getElementById('queue_status_banner');
+            if (!banner) {
+                banner = document.createElement('div');
+                banner.id = 'queue_status_banner';
+                banner.className = 'bill-queue-banner';
+                const formCol = document.getElementById('mobile_form_col');
+                if (formCol) formCol.insertBefore(banner, formCol.firstChild);
+            }
+            const isLast = (curIdx + 1 >= queue.length);
+            const curBill = queue[curIdx];
+            const nextBill = queue[curIdx + 1];
+            banner.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <span style="background: #4f46e5; color: white; padding: 3px 10px; border-radius: 12px; font-weight: 800; font-size: 0.85rem; margin-right: 6px;">Bill ${curIdx + 1} of ${queue.length}</span>
+                        <strong style="color: #1e1b4b; font-size: 1.1rem;">${escapeHtml(curBill.buyer_name || 'Party')}</strong>
+                        ${!isLast ? `<span style="color: #4338ca; font-size: 0.9rem; margin-left: 8px;">(Next up: ${escapeHtml(nextBill.buyer_name || 'Next Bill')})</span>` : '<span style="color: #15803d; font-size: 0.9rem; margin-left: 8px; font-weight: 700;">(Final bill on chit)</span>'}
+                    </div>
+                    <button type="button" onclick="clearBillQueue()" style="background: transparent; border: none; color: #64748b; font-size: 0.82rem; text-decoration: underline; cursor: pointer;">
+                        Cancel Queue
+                    </button>
+                </div>
+            `;
+            banner.style.display = 'block';
+        }
+
+        function clearBillQueue() {
+            sessionStorage.removeItem('pending_bills_queue');
+            sessionStorage.removeItem('current_bill_index');
+            const banner = document.getElementById('queue_status_banner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            checkQueueOnPageLoad();
+        });
 
         // ================= PAST INVOICES / RECORDS =================
         function openInvoiceModal() {
