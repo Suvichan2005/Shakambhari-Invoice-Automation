@@ -34,6 +34,13 @@ import uuid
 import time
 from num2words import num2words
 from typing import Any, List, Dict, Optional
+from buyer_normalizer import (
+    normalize_buyer_profile,
+    clean_line_phone_email,
+    GST_STATE_MAP,
+    CITY_STATE_MAP
+)
+
 # The old helper `copy1.copy_excel_with_formatting` was removed; use the
 # cloud.app_cloud.generate_invoice_excel exporter when available.
 try:
@@ -1302,22 +1309,28 @@ def manage_profile(profile_id=None):
                 return render_template('profile_form.html', profile=profile_data, 
                                      is_new_profile=True, profile_id=None)
             
-            new_profile = {
+            raw_new = {
                 "profile_id": new_profile_id,
                 "buyer_name": buyer_name,
                 "buyer_details": buyer_details,
                 "gstin": gstin,
                 "default_tax_type": default_tax_type
             }
+            new_profile = normalize_buyer_profile(raw_new)
             buyer_profiles.append(new_profile)
             flash(f"Profile '{buyer_name}' created successfully!", "success")
         else:
             profile_to_update = next((p for p in buyer_profiles if p.get('profile_id') == profile_id), None)
             if profile_to_update:
-                profile_to_update['buyer_name'] = buyer_name
-                profile_to_update['buyer_details'] = buyer_details
-                profile_to_update['gstin'] = gstin
-                profile_to_update['default_tax_type'] = default_tax_type
+                raw_update = {
+                    "profile_id": profile_id,
+                    "buyer_name": buyer_name,
+                    "buyer_details": buyer_details,
+                    "gstin": gstin,
+                    "default_tax_type": default_tax_type
+                }
+                norm_p = normalize_buyer_profile(raw_update)
+                profile_to_update.update(norm_p)
                 flash(f"Profile '{buyer_name}' updated successfully!", "success")
             else:
                 flash("Error: Profile not found for update.", "error")

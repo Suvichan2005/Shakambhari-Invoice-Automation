@@ -327,6 +327,26 @@ GSTIN - 19XXXXXXXXXXXXXX"
     </div>
     
     <script>
+        function stripPhoneEmail(line) {
+            let s = (line || '').trim();
+            if (!s) return '';
+            // Strip emails
+            s = s.replace(/\b(email|e-mail|mail|contact)\s*[:.\-]?\s*[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, '');
+            s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, '');
+            // Strip labeled phone numbers
+            s = s.replace(/\b(ph(\.|\s*no)?|mob(ile)?|phone|tel(ephone)?|contact|cell|call|fax|m)\s*[:.\-/#]?\s*(\+?91[\-\s]?)?[\d\s\-/()]{7,}/gi, '');
+            // Strip standalone 10-digit mobile
+            s = s.replace(/(\+?91[\-\s]?)?[6-9]\d{4}[\-\s]?\d{5}\b/g, '');
+            s = s.replace(/(\+?91[\-\s]?)?[6-9]\d{9}\b/g, '');
+            // Strip STD landlines
+            s = s.replace(/\b0\d{2,4}[\-\s]?\d{6,8}\b/g, '');
+            if (/^\s*(email|e-mail|mail|ph(\.|\s*no)?|phone|mob(ile)?|tel(ephone)?|contact|call|cell|fax|m)\s*[:.\-/#]?\s*$/i.test(s)) return '';
+            s = s.replace(/\s*[/,]\s*[/,]+/g, ',');
+            s = s.replace(/[\s,:\-/]+$/, '');
+            s = s.replace(/^[\s,:\-/]+/, '');
+            return s.trim();
+        }
+
         function cleanupDetails() {
             const name = document.getElementById('buyer_name').value.trim().toLowerCase();
             const detailsEl = document.getElementById('buyer_details_textarea');
@@ -348,7 +368,10 @@ GSTIN - 19XXXXXXXXXXXXXX"
                 // Skip if it's just the buyer name
                 if (lowerTrimmed === name) return;
                 
-                cleanedLines.push(trimmed);
+                let cleaned = stripPhoneEmail(trimmed);
+                if (cleaned) {
+                    cleanedLines.push(cleaned);
+                }
             });
             
             // Update the textarea with cleaned content
@@ -451,12 +474,15 @@ GSTIN - 19XXXXXXXXXXXXXX"
                 const d = res.data;
                 if (d.buyer_name) document.getElementById('buyer_name').value = d.buyer_name;
                 
-                // Format address lines (excluding buyer name)
+                // Format address lines (excluding buyer name, phone, email)
                 if (Array.isArray(d.buyer_details)) {
-                    const lines = d.buyer_details.filter(l => {
-                        const s = String(l || '').trim();
-                        return s && !s.toLowerCase().startsWith('buyer:') && s.toLowerCase() !== (d.buyer_name || '').toLowerCase();
-                    });
+                    const lines = d.buyer_details
+                        .filter(l => {
+                            const s = String(l || '').trim();
+                            return s && !s.toLowerCase().startsWith('buyer:') && s.toLowerCase() !== (d.buyer_name || '').toLowerCase();
+                        })
+                        .map(l => stripPhoneEmail(String(l)))
+                        .filter(l => l.length > 0);
                     document.getElementById('buyer_details_textarea').value = lines.join('\n');
                 }
 

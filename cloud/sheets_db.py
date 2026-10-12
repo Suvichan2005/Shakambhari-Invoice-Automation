@@ -20,6 +20,14 @@ except ImportError:
     gspread = None
     Credentials = None
 
+try:
+    from buyer_normalizer import normalize_buyer_profile
+except ImportError:
+    try:
+        from cloud.buyer_normalizer import normalize_buyer_profile
+    except ImportError:
+        normalize_buyer_profile = None
+
 # Google Sheets API scopes
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
@@ -97,6 +105,7 @@ class GoogleSheetsDB:
         try:
             sheet = self._get_or_create_sheet('Buyers', self.BUYER_HEADERS)
             records = sheet.get_all_records()
+            normalized_records = []
             for record in records:
                 if record.get('buyer_details'):
                     try:
@@ -105,6 +114,15 @@ class GoogleSheetsDB:
                         record['buyer_details'] = record['buyer_details'].split('\n')
                 else:
                     record['buyer_details'] = []
+
+                if normalize_buyer_profile and record.get('buyer_name'):
+                    try:
+                        norm = normalize_buyer_profile(record)
+                        record.update(norm)
+                    except Exception:
+                        pass
+                normalized_records.append(record)
+            records = normalized_records
 
             # Check if any default buyer from buyer_profiles.json is missing in sheet
             fb_path = os.path.join(os.path.dirname(__file__), 'buyer_profiles.json')
@@ -147,6 +165,12 @@ class GoogleSheetsDB:
     
     def save_buyer(self, buyer: Dict) -> bool:
         """Save or update a buyer profile."""
+        if normalize_buyer_profile and buyer.get('buyer_name'):
+            try:
+                buyer = normalize_buyer_profile(buyer)
+            except Exception:
+                pass
+
         self._cache.pop('buyers', None)
         sheet = self._get_or_create_sheet('Buyers', self.BUYER_HEADERS)
         

@@ -51,6 +51,12 @@ if _cloud_dir not in sys.path:
 from sheets_db import GoogleSheetsDB, init_sheets_db
 from cloud_storage import CloudStorage, init_cloud_storage
 from settings_manager import get_settings, update_settings, DEFAULT_SETTINGS
+from buyer_normalizer import (
+    normalize_buyer_profile,
+    clean_line_phone_email,
+    GST_STATE_MAP,
+    CITY_STATE_MAP
+)
 
 # Excel handling
 import openpyxl
@@ -268,29 +274,14 @@ def _extract_gstin_from_lines(lines: List[str]) -> str:
 
 def _normalize_buyer_details_for_storage(buyer_name: str, raw_text: str, fallback_gstin: str = '') -> tuple[list[str], str]:
     """Build the canonical buyer_details block stored in Sheets."""
-    normalized_lines = []
-    buyer_name_clean = (buyer_name or '').strip()
-    fallback_gstin = (fallback_gstin or '').strip().upper()
-
-    for line in _split_detail_lines(raw_text):
-        lowered = line.lower()
-        if lowered in {'buyer:', 'buyer :'}:
-            continue
-        if buyer_name_clean and lowered == buyer_name_clean.lower():
-            continue
-        normalized_lines.append(line)
-
-    gstin = _extract_gstin_from_lines(normalized_lines) or fallback_gstin
-    if gstin and not any(gstin in line.upper() for line in normalized_lines):
-        normalized_lines.append(f'GSTIN - {gstin}')
-
-    stored_lines = []
-    if buyer_name_clean:
-        stored_lines = ['Buyer:', buyer_name_clean] + normalized_lines
-    else:
-        stored_lines = normalized_lines
-
-    return stored_lines, gstin
+    lines = _split_detail_lines(raw_text)
+    profile_data = {
+        'buyer_name': buyer_name,
+        'buyer_details': lines,
+        'gstin': fallback_gstin
+    }
+    norm = normalize_buyer_profile(profile_data)
+    return norm['buyer_details'], norm['gstin']
 
 
 def _details_for_edit_form(profile: Dict[str, Any]) -> str:
@@ -938,7 +929,7 @@ def normalize_transport_mode(mode: str) -> str:
 
 
 def clean_address_lines(lines: Any) -> List[str]:
-    """Strip redundant leading 'Buyer:' or 'Ship To:' header lines from address lists."""
+    """Strip redundant leading 'Buyer:' or 'Ship To:' header lines from address lists and strip phones/emails."""
     if not lines:
         return []
     if isinstance(lines, str):
@@ -951,6 +942,7 @@ def clean_address_lines(lines: Any) -> List[str]:
         if re.match(r'^(buyer|ship\s*to)\s*:\s*$', s, re.IGNORECASE):
             continue
         s = re.sub(r'^(buyer|ship\s*to)\s*:\s*', '', s, flags=re.IGNORECASE).strip()
+        s = clean_line_phone_email(s)
         if s:
             cleaned.append(s)
     return cleaned
@@ -1900,13 +1892,14 @@ def manage_profile(profile_id=None):
         else:
             new_profile_id = profile_id
         
-        profile_data = {
+        raw_p = {
             'profile_id': new_profile_id,
             'buyer_name': buyer_name,
             'buyer_details': buyer_details,
             'gstin': gstin,
             'default_tax_type': default_tax_type
         }
+        profile_data = normalize_buyer_profile(raw_p)
         
         if db.save_buyer(profile_data):
             flash(f"Profile '{buyer_name}' saved successfully!", "success")
@@ -2343,10 +2336,20 @@ def api_ai_parse_bill():
         "   - When multiple bills or parties appear, extract EACH bill as an element in the 'invoices' array.\n"
         "   - For invoice numbering: start with the suggested next invoice number and increment sequentially for each subsequent bill (e.g., if suggested is 057, Bill 1 is 057, Bill 2 is 058).\n"
         "   - If only 1 bill is present, still include it in 'invoices': [ ... ] and also populate 'data'.\n\n"
-        "3. TOLERANT BUYER MATCHING:\n"
+        "3. TOLERANT BUYER MATCHING & VISITING CARD NORMALIZATION:\n"
         "   - Search KNOWN BUYERS carefully. Match flexibly even with minor differences or abbreviations (e.g., 'Das metal' matches 'Das Metal', 'Anand Metal' matches 'ANAND METAL WORKS').\n"
         "   - If matched, set 'matched_profile_id' to that ID, 'buyer_name' to the official name, and 'is_new_buyer': false.\n"
-        "   - If it is genuinely a new party or visiting card, set 'is_new_buyer': true, 'matched_profile_id': null, formulate clean 'buyer_details' address lines, and extract 'gstin', 'state', 'state_code'.\n\n"
+        "   - If it is genuinely a new party, visiting card, or rough slip:\n"
+        "     * Set 'is_new_buyer': true, 'matched_profile_id': null.\n"
+        "     * ADDRESS CLEANING: Strip all phone numbers, mobile numbers, landlines, and email addresses from 'buyer_details' (e.g., no 'Ph:', 'Mob:', '+91...', 'Email:').\n"
+        "     * PIN CODES: Always preserve 6-digit Indian postal PIN codes (e.g. 711315, 781001).\n"
+        "     * STATE CODE: Always include the mandatory state code line in format: 'STATE- <STATE_NAME> CODE-<STATE_CODE>' (e.g., 'STATE- WEST BENGAL CODE-19', 'STATE- ASSAM CODE-18', 'STATE- BIHAR CODE-10', 'STATE- TRIPURA CODE-16', 'STATE- JHARKHAND CODE-20'). Infer from GSTIN first 2 digits or city/region.\n"
+        "     * CANONICAL LINE ORDER in 'buyer_details':\n"
+        "       Line 1: 'Buyer :'\n"
+        "       Line 2: '<Buyer Name>'\n"
+        "       Lines 3..k: Clean address lines (premises, street, city, PIN code)\n"
+        "       Next to last: 'STATE- <STATE_NAME> CODE-<STATE_CODE>'\n"
+        "       Last: 'GSTIN - <GSTIN>' (if registered)\n\n"
         "4. GOODS, PACKAGING & TAXATION:\n"
         "   - Default description: 'Aluminium Utensils'.\n"
         "   - Packaging unit: default 'Bags', but if 'bundle', 'bundles', 'box', 'boxes', 'carton' or 'pieces' is noted, set 'unit' accordingly (e.g., 'Bundles', 'Boxes', 'Pieces').\n"
@@ -2498,6 +2501,23 @@ def api_ai_parse_bill():
                     if not inv_data.get('invoice_number') and suggested_inv:
                         inv_data['invoice_number'] = format_sequential_invoice_number(suggested_inv, idx)
 
+                    # Normalize buyer profile info on invoice
+                    if inv_data.get('buyer_name') or inv_data.get('buyer_details'):
+                        temp_p = {
+                            'buyer_name': inv_data.get('buyer_name', ''),
+                            'buyer_details': inv_data.get('buyer_details') or [inv_data.get('buyer_name', '')],
+                            'gstin': inv_data.get('gstin', ''),
+                            'state': inv_data.get('state', ''),
+                            'state_code': inv_data.get('state_code', ''),
+                            'default_tax_type': inv_data.get('tax_type', 'IGST')
+                        }
+                        norm_p = normalize_buyer_profile(temp_p)
+                        inv_data['buyer_details'] = norm_p['buyer_details']
+                        inv_data['gstin'] = norm_p['gstin']
+                        inv_data['state'] = norm_p['state']
+                        inv_data['state_code'] = norm_p['state_code']
+                        inv_data['tax_type'] = norm_p['default_tax_type']
+
                     # Auto-persist new buyer if requested
                     if inv_data.get('is_new_buyer') and inv_data.get('buyer_name') and create_buyer_if_new:
                         b_name = inv_data.get('buyer_name', '').strip()
@@ -2507,16 +2527,16 @@ def api_ai_parse_bill():
                             inv_data['matched_profile_id'] = matched.get('profile_id')
                         else:
                             new_profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
-                            b_lines = inv_data.get('buyer_details') or [b_name]
-                            new_profile = {
+                            new_profile_raw = {
                                 'profile_id': new_profile_id,
                                 'buyer_name': b_name,
-                                'buyer_details': b_lines,
+                                'buyer_details': inv_data.get('buyer_details') or [b_name],
                                 'gstin': inv_data.get('gstin', '').strip().upper(),
                                 'state': inv_data.get('state', ''),
                                 'state_code': inv_data.get('state_code', ''),
                                 'default_tax_type': inv_data.get('tax_type', 'IGST')
                             }
+                            new_profile = normalize_buyer_profile(new_profile_raw)
                             try:
                                 db = get_sheets_db_or_none()
                                 if db:
@@ -2596,7 +2616,7 @@ def api_ai_create_buyer():
 
     tax_type = data.get('default_tax_type') or data.get('tax_type') or ('CGST_SGST' if state_code == '19' else 'IGST')
 
-    new_profile = {
+    raw_profile = {
         'profile_id': profile_id,
         'buyer_name': buyer_name,
         'buyer_details': details,
@@ -2605,6 +2625,7 @@ def api_ai_create_buyer():
         'state_code': state_code,
         'default_tax_type': tax_type
     }
+    new_profile = normalize_buyer_profile(raw_profile)
 
     try:
         db = get_sheets_db_or_none()
@@ -2651,7 +2672,7 @@ def api_generate_batch():
                 buyer = next((b for b in all_b if b.get('buyer_name', '').strip().lower() == b_name_lower), None)
             if not buyer and inv.get('buyer_name'):
                 new_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
-                buyer = {
+                buyer = normalize_buyer_profile({
                     'profile_id': new_id,
                     'buyer_name': inv['buyer_name'].strip(),
                     'buyer_details': inv.get('buyer_details') or [inv['buyer_name'].strip()],
@@ -2659,7 +2680,7 @@ def api_generate_batch():
                     'state': inv.get('state', ''),
                     'state_code': inv.get('state_code', ''),
                     'default_tax_type': inv.get('tax_type', 'IGST')
-                }
+                })
                 try:
                     db.save_buyer(buyer)
                 except Exception:

@@ -3067,7 +3067,24 @@
             return lines.filter(l => {
                 const s = String(l || '').trim();
                 return s && !/^(buyer|ship\s*to)\s*:\s*$/i.test(s);
-            }).map(l => String(l || '').trim().replace(/^(buyer|ship\s*to)\s*:\s*/i, '')).filter(l => l.length > 0);
+            }).map(l => {
+                let s = String(l || '').trim().replace(/^(buyer|ship\s*to)\s*:\s*/i, '');
+                // Strip emails
+                s = s.replace(/\b(email|e-mail|mail|contact)\s*[:.\-]?\s*[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, '');
+                s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, '');
+                // Strip labeled phone numbers
+                s = s.replace(/\b(ph(\.|\s*no)?|mob(ile)?|phone|tel(ephone)?|contact|cell|call|fax|m)\s*[:.\-/#]?\s*(\+?91[\-\s]?)?[\d\s\-/()]{7,}/gi, '');
+                // Strip standalone 10-digit mobile
+                s = s.replace(/(\+?91[\-\s]?)?[6-9]\d{4}[\-\s]?\d{5}\b/g, '');
+                s = s.replace(/(\+?91[\-\s]?)?[6-9]\d{9}\b/g, '');
+                // Strip STD landlines
+                s = s.replace(/\b0\d{2,4}[\-\s]?\d{6,8}\b/g, '');
+                if (/^\s*(email|e-mail|mail|ph(\.|\s*no)?|phone|mob(ile)?|tel(ephone)?|contact|call|cell|fax|m)\s*[:.\-/#]?\s*$/i.test(s)) return '';
+                s = s.replace(/\s*[/,]\s*[/,]+/g, ',');
+                s = s.replace(/[\s,:\-/]+$/, '');
+                s = s.replace(/^[\s,:\-/]+/, '');
+                return s.trim();
+            }).filter(l => l.length > 0);
         }
 
         // ================= MOBILE VIEW SWITCHER =================

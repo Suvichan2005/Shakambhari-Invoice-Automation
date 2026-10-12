@@ -1,4 +1,6 @@
 import os
+import json
+import re
 import unittest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch
@@ -329,8 +331,149 @@ class NonBillAndAttachmentIntegrityTests(unittest.TestCase):
         self.assertNotIn("class=\"ai-clarification-chip\" onclick=\"submitAiMessage", content)
 
 
+class BuyerNormalizationTests(unittest.TestCase):
+    def test_clean_line_phone_email_stripping(self):
+        """Test stripping of phone numbers and emails while preserving postal PIN codes."""
+        from buyer_normalizer import clean_line_phone_email
+
+        self.assertEqual(clean_line_phone_email("Ph: 9830012345"), "")
+        self.assertEqual(clean_line_phone_email("Mob: +91 98300 12345"), "")
+        self.assertEqual(clean_line_phone_email("Email: test@example.com"), "")
+        self.assertEqual(clean_line_phone_email("M: +91-9830012345 / 9830123456"), "")
+        self.assertEqual(clean_line_phone_email("Tel: 033-26541234, Fax: 033-26541235"), "")
+
+        # PIN codes must be preserved!
+        self.assertEqual(clean_line_phone_email("Howrah - 711315"), "Howrah - 711315")
+        self.assertEqual(clean_line_phone_email("Assam-783380"), "Assam-783380")
+        self.assertEqual(clean_line_phone_email("Singur - 712409, West Bengal"), "Singur - 712409, West Bengal")
+        self.assertEqual(clean_line_phone_email("PIN - 743125"), "PIN - 743125")
+
+        # Address lines with inline phones/emails
+        self.assertEqual(
+            clean_line_phone_email("Vill:- Kashida, PO:- Ghatsila, Mob: 9876543210"),
+            "Vill:- Kashida, PO:- Ghatsila"
+        )
+        self.assertEqual(
+            clean_line_phone_email("Station Road, Ranchi, Phone: 9831098310, Email: store@gmail.com"),
+            "Station Road, Ranchi"
+        )
+
+    def test_normalize_buyer_profile_state_from_gstin(self):
+        """Test missing state code is inferred from GSTIN and formatted canonically."""
+        from buyer_normalizer import normalize_buyer_profile
+
+        raw = {
+            'buyer_name': 'NARAYANI METAL',
+            'buyer_details': [
+                'Buyer :',
+                'NARAYANI METAL',
+                'Address :46/F, Malipanchghara Street,',
+                '8 no. Janki Devi Jalan Road Complex - 711204',
+                'Ph: 9830012345',
+                'GST-No -19AFQPP2143G1Z7'
+            ]
+        }
+        norm = normalize_buyer_profile(raw)
+        self.assertEqual(norm['gstin'], '19AFQPP2143G1Z7')
+        self.assertEqual(norm['state_code'], '19')
+        self.assertEqual(norm['state'], 'West Bengal')
+        self.assertEqual(norm['default_tax_type'], 'CGST_SGST')
+        self.assertIn('STATE- WEST BENGAL CODE-19', norm['buyer_details'])
+        self.assertIn('GSTIN - 19AFQPP2143G1Z7', norm['buyer_details'])
+        # Verify phone number was stripped
+        self.assertNotIn('Ph: 9830012345', norm['buyer_details'])
+        # Verify 6-digit PIN code was preserved
+        self.assertTrue(any('711204' in l for l in norm['buyer_details']))
+
+    def test_normalize_buyer_profile_state_from_city(self):
+        """Test state code inferred from city keywords when GSTIN is missing."""
+        from buyer_normalizer import normalize_buyer_profile
+
+        raw = {
+            'buyer_name': 'Guwahati Fancy Trader',
+            'buyer_details': [
+                'Guwahati Fancy Trader',
+                'Muralidhar Sharma Road',
+                'Fancy Bazar, Guwahati - 781001',
+                'Tel: 0361-2541234'
+            ]
+        }
+        norm = normalize_buyer_profile(raw)
+        self.assertEqual(norm['state_code'], '18')
+        self.assertEqual(norm['state'], 'Assam')
+        self.assertEqual(norm['default_tax_type'], 'IGST')
+        self.assertIn('STATE- ASSAM CODE-18', norm['buyer_details'])
+        self.assertTrue(any('781001' in l for l in norm['buyer_details']))
+
+    def test_normalize_buyer_profile_strips_embedded_state_code(self):
+        """Test that embedded CODE-16 on address line is stripped cleanly."""
+        from buyer_normalizer import normalize_buyer_profile
+
+        raw = {
+            'buyer_name': 'KALACHAND BHANDER',
+            'buyer_details': [
+                'KALACHAND BHANDER',
+                'EAST MARKET',
+                'BASAN PATTI',
+                'DHARMANAGAR, TRIPURA-799250 CODE-16',
+                'GSTIN - 16BNKPPO840B1ZB'
+            ]
+        }
+        norm = normalize_buyer_profile(raw)
+        self.assertEqual(norm['state_code'], '16')
+        self.assertIn('STATE- TRIPURA CODE-16', norm['buyer_details'])
+        self.assertIn('DHARMANAGAR, TRIPURA-799250', norm['buyer_details'])
+        self.assertNotIn('DHARMANAGAR, TRIPURA-799250 CODE-16', norm['buyer_details'])
+
+    def test_api_ai_create_buyer_normalizes_address(self):
+        """POST /api/ai/create-buyer strips phone/email and adds state code."""
+        flask_app.config['TESTING'] = True
+        client = flask_app.test_client()
+
+        payload = {
+            'buyer_name': 'Patna Aluminium Mart',
+            'buyer_details': [
+                'Patna Aluminium Mart',
+                'Station Road, Patna - 800001',
+                'Mob: +91 94310 12345',
+                'Email: patna@metalmart.in',
+                'GSTIN: 10AABCP1234D1ZE'
+            ],
+            'gstin': '10AABCP1234D1ZE'
+        }
+        resp = client.post('/api/ai/create-buyer', json=payload)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+        buyer = data['buyer']
+        self.assertEqual(buyer['state_code'], '10')
+        self.assertEqual(buyer['state'], 'Bihar')
+        self.assertIn('STATE- BIHAR CODE-10', buyer['buyer_details'])
+        self.assertIn('GSTIN - 10AABCP1234D1ZE', buyer['buyer_details'])
+        # Ensure phone and email were stripped
+        for line in buyer['buyer_details']:
+            self.assertNotIn('94310', line)
+            self.assertNotIn('patna@metalmart.in', line)
+
+    def test_all_existing_buyer_profiles_normalized(self):
+        """Verify that every profile in cloud/buyer_profiles.json is normalized."""
+        with open('cloud/buyer_profiles.json', 'r', encoding='utf-8') as f:
+            profiles = json.load(f)
+
+        self.assertGreater(len(profiles), 20)
+        for p in profiles:
+            name = p.get('buyer_name', '')
+            self.assertNotEqual(name, 'Buyer :', "Dummy 'Buyer :' profile must not exist")
+            self.assertTrue(bool(name), "Every profile must have a buyer_name")
+            self.assertTrue(bool(p.get('state_code')), f"Profile {name} missing state_code")
+            self.assertTrue(bool(p.get('state')), f"Profile {name} missing state")
+            self.assertIn(p.get('default_tax_type'), ['CGST_SGST', 'IGST'])
+
+            # Verify no email or phone in details
+            for line in p.get('buyer_details', []):
+                self.assertFalse(re.search(r'@', line), f"Email found in {name}: {line}")
+                self.assertFalse(re.search(r'(?i)\b(mob|ph|phone|cell)\s*[:.\-]', line), f"Phone found in {name}: {line}")
+
+
 if __name__ == '__main__':
-    import json
     unittest.main()
-else:
-    import json
