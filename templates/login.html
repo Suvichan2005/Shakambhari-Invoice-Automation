@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Shakambhari Invoice Generator</title>
+    <style>
+        :root {
+            --primary: #007bff;
+            --primary-dark: #0056b3;
+            --danger: #dc3545;
+            --gray-100: #f8f9fa;
+            --gray-300: #dee2e6;
+            --gray-700: #495057;
+            --gray-900: #212529;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--gray-900);
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+            padding: 28px;
+        }
+
+        h1 {
+            margin: 0 0 6px 0;
+            font-size: 1.4rem;
+        }
+
+        .subtitle {
+            margin: 0 0 18px 0;
+            color: var(--gray-700);
+            font-size: 0.95rem;
+        }
+
+        .flash {
+            margin: 0 0 14px 0;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+        }
+
+        .flash.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        .flash.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-color: #ffeeba;
+        }
+
+        .flash.success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--gray-700);
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        input[type="password"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.15);
+        }
+
+        button {
+            width: 100%;
+            margin-top: 14px;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            background: var(--primary);
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+        }
+
+        .note {
+            margin-top: 12px;
+            font-size: 0.82rem;
+            color: var(--gray-700);
+        }
+
+        .danger {
+            color: var(--danger);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Shakambhari Invoice Generator</h1>
+        <p class="subtitle">Enter app password to continue.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash {{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if auth_enabled %}
+        <form method="POST" action="{{ url_for('login', next=next_url) }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+            <button type="submit">Login</button>
+        </form>
+        {% else %}
+        <p class="note"><span class="danger">APP_PASSWORD is not configured.</span> Set APP_PASSWORD env variable to enable login protection.</p>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -14,7 +14,7 @@ import os
 import json
 import re
 from decimal import Decimal, ROUND_HALF_UP
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash, jsonify, make_response, session
 from datetime import datetime, timezone, timedelta
 try:
     from zoneinfo import ZoneInfo
@@ -32,6 +32,8 @@ def get_ist_today_str():
     return get_ist_now().strftime('%Y-%m-%d')
 import uuid
 import time
+import hashlib
+import hmac
 from num2words import num2words
 from typing import Any, List, Dict, Optional
 from buyer_normalizer import (
@@ -103,7 +105,67 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY') or os.urandom(24).hex()
+app.permanent_session_lifetime = timedelta(days=30)
 app.config['SESSION_COOKIE_NAME'] = '__session'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# Application authentication: PBKDF2 salted hash to avoid keeping raw password in memory
+_AUTH_SALT = b"shakambhari_auth_v1_salt"
+
+def hash_app_password(password: str) -> str:
+    """Generate deterministic PBKDF2 hash of password with fixed salt."""
+    return hashlib.pbkdf2_hmac(
+        'sha256', password.strip().encode('utf-8'), _AUTH_SALT, 100000
+    ).hex()
+
+def set_app_password(password: str) -> None:
+    """Set or update app password hash in-memory."""
+    cleaned = password.strip() if password else ''
+    if cleaned:
+        app.config['APP_PASSWORD_HASH'] = hash_app_password(cleaned)
+        app.config['AUTH_ENABLED'] = True
+    else:
+        app.config['APP_PASSWORD_HASH'] = None
+        app.config['AUTH_ENABLED'] = False
+
+def verify_app_password(entered_password: str) -> bool:
+    """Constant-time verification of entered password against PBKDF2 hash."""
+    if not app.config.get('AUTH_ENABLED'):
+        return True
+    stored_hash = app.config.get('APP_PASSWORD_HASH')
+    if not stored_hash or not entered_password:
+        return False
+    entered_hash = hash_app_password(entered_password)
+    return hmac.compare_digest(entered_hash, stored_hash)
+
+_raw_app_password = os.environ.get('APP_PASSWORD', '').strip()
+set_app_password(_raw_app_password)
+del _raw_app_password
+
+def sanitize_settings_for_client(settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip server-only credentials (e.g. Gemini backend API key) before responding to browser."""
+    safe = dict(settings_dict or {})
+    backend_key = safe.pop('gemini_backend_api_key', '')
+    safe['has_backend_api_key'] = bool(backend_key)
+    return safe
+
+@app.after_request
+def add_security_headers(response):
+    """Inject standard defensive HTTP security headers into every response."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+    if not request.path.startswith('/static/'):
+        if request.path.startswith('/api/') or session.get('authenticated'):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+
+    return response
+
 ensure_dirs()
 
 BACKUP_DIR = os.path.join(BASE_DIR, "_backups")
@@ -585,7 +647,7 @@ def index():
                           suggested_invoice_number=suggestion,
                           recent_invoices=recent_invoices,
                           preload_invoice=preload_invoice,
-                          app_settings=get_settings())
+                          app_settings=sanitize_settings_for_client(get_settings()))
 
 
 @app.route('/generate_invoice', methods=['POST'])
@@ -1007,9 +1069,16 @@ def api_settings():
     """Retrieve or update dynamic application settings."""
     if request.method == 'POST':
         updates = request.get_json(silent=True) or {}
+        # Retain server key if empty/whitespace string was submitted
+        if 'gemini_backend_api_key' in updates:
+            provided_key = str(updates['gemini_backend_api_key']).strip()
+            if not provided_key:
+                current = get_settings()
+                if current.get('gemini_backend_api_key'):
+                    updates['gemini_backend_api_key'] = current['gemini_backend_api_key']
         new_settings = update_settings(updates)
-        return jsonify({'success': True, 'settings': new_settings})
-    return jsonify({'success': True, 'settings': get_settings()})
+        return jsonify({'success': True, 'settings': sanitize_settings_for_client(new_settings)})
+    return jsonify({'success': True, 'settings': sanitize_settings_for_client(get_settings())})
 
 
 @app.route('/api/ai/parse-bill', methods=['POST'])

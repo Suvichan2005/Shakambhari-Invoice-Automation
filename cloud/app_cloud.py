@@ -15,6 +15,8 @@ import tempfile
 import time
 import shutil
 import subprocess
+import hashlib
+import hmac
 from copy import copy
 from decimal import Decimal, ROUND_HALF_UP
 from collections import defaultdict, deque
@@ -51,6 +53,14 @@ if _cloud_dir not in sys.path:
 from sheets_db import GoogleSheetsDB, init_sheets_db
 from cloud_storage import CloudStorage, init_cloud_storage
 from settings_manager import get_settings, update_settings, DEFAULT_SETTINGS
+
+
+def sanitize_settings_for_client(settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Strip server-only credentials (e.g. Gemini backend API key) before responding to browser."""
+    safe = dict(settings_dict or {})
+    backend_key = safe.pop('gemini_backend_api_key', '')
+    safe['has_backend_api_key'] = bool(backend_key)
+    return safe
 from buyer_normalizer import (
     normalize_buyer_profile,
     clean_line_phone_email,
@@ -79,6 +89,7 @@ if not _secret_key:
     print("WARNING: FLASK_SECRET_KEY is not set. Using ephemeral key; sessions reset on restart.")
 
 app.secret_key = _secret_key
+app.permanent_session_lifetime = timedelta(days=30)
 # Firebase Hosting CDN only passes through cookies named '__session'.
 app.config['SESSION_COOKIE_NAME'] = '__session'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -93,12 +104,42 @@ else:
     # Default to secure only when running in managed cloud runtime.
     app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('K_SERVICE'))
 
-app.config['APP_PASSWORD'] = os.environ.get('APP_PASSWORD', '').strip()
-app.config['AUTH_ENABLED'] = bool(app.config['APP_PASSWORD'])
+# Application authentication: PBKDF2 salted hash to avoid keeping raw password in memory
+_AUTH_SALT = b"shakambhari_auth_v1_salt"
+
+def hash_app_password(password: str) -> str:
+    """Generate deterministic PBKDF2 hash of password with fixed salt."""
+    return hashlib.pbkdf2_hmac(
+        'sha256', password.strip().encode('utf-8'), _AUTH_SALT, 100000
+    ).hex()
+
+def set_app_password(password: str) -> None:
+    """Set or update app password hash in-memory."""
+    cleaned = password.strip() if password else ''
+    if cleaned:
+        app.config['APP_PASSWORD_HASH'] = hash_app_password(cleaned)
+        app.config['AUTH_ENABLED'] = True
+    else:
+        app.config['APP_PASSWORD_HASH'] = None
+        app.config['AUTH_ENABLED'] = False
+
+def verify_app_password(entered_password: str) -> bool:
+    """Constant-time verification of entered password against PBKDF2 hash."""
+    if not app.config.get('AUTH_ENABLED'):
+        return True
+    stored_hash = app.config.get('APP_PASSWORD_HASH')
+    if not stored_hash or not entered_password:
+        return False
+    entered_hash = hash_app_password(entered_password)
+    return hmac.compare_digest(entered_hash, stored_hash)
+
+_raw_app_password = os.environ.get('APP_PASSWORD', '').strip()
+set_app_password(_raw_app_password)
+del _raw_app_password
 
 # Basic in-memory per-IP rate limiting for sensitive routes.
 RATE_LIMITS = {
-    'login': (20, 60),
+    'login': (5, 60),  # Stricter limit: 5 attempts per minute to mitigate brute-forcing
     'generate_invoice': (30, 60),
     'calculate_preview': (300, 60),
     'api_get_invoice': (180, 60),
@@ -182,16 +223,38 @@ def enforce_rate_limit():
     return None
 
 
+@app.after_request
+def add_security_headers(response: Response) -> Response:
+    """Inject standard defensive HTTP security headers into every response."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+
+    # Prevent caching of sensitive financial/API views and authenticated sessions
+    if not request.path.startswith('/static/'):
+        if request.path.startswith('/api/') or session.get('authenticated'):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+
+    return response
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login route for lightweight app-level protection."""
     if not app.config.get('AUTH_ENABLED'):
+        session.clear()
+        session.permanent = True
         session['authenticated'] = True
         return redirect(url_for('index'))
 
     if request.method == 'POST':
         password = request.form.get('password', '')
-        if password == app.config['APP_PASSWORD']:
+        if verify_app_password(password):
+            session.clear()
+            session.permanent = True
             session['authenticated'] = True
             flash('Login successful.', 'success')
             next_url = _normalize_post_login_target(
@@ -199,6 +262,8 @@ def login():
             )
             return redirect(next_url)
 
+        # Anti-brute-force penalty delay to slow down dictionary attacks
+        time.sleep(1.0)
         flash('Invalid password.', 'error')
 
     return render_template('login.html',
@@ -1452,7 +1517,7 @@ def index():
                           recent_invoices=recent_invoices,
                           preload_invoice=preload_invoice,
                           open_records=(request.args.get('open_records') == '1'),
-                          app_settings=get_settings(storage),
+                          app_settings=sanitize_settings_for_client(get_settings(storage)),
                           bucket_console_url=f"{bucket_base}{project_suffix}" if bucket else '',
                           invoices_folder_url=f"{bucket_base}/invoices/{project_suffix}" if bucket else '',
                           pdfs_folder_url=f"{bucket_base}/pdfs/{project_suffix}" if bucket else '')
@@ -2203,9 +2268,16 @@ def api_settings():
     storage = get_cloud_storage()
     if request.method == 'POST':
         updates = request.get_json(silent=True) or {}
+        # Retain server key if empty/whitespace string was submitted
+        if 'gemini_backend_api_key' in updates:
+            provided_key = str(updates['gemini_backend_api_key']).strip()
+            if not provided_key:
+                current = get_settings(storage)
+                if current.get('gemini_backend_api_key'):
+                    updates['gemini_backend_api_key'] = current['gemini_backend_api_key']
         new_settings = update_settings(updates, storage)
-        return jsonify({'success': True, 'settings': new_settings})
-    return jsonify({'success': True, 'settings': get_settings(storage)})
+        return jsonify({'success': True, 'settings': sanitize_settings_for_client(new_settings)})
+    return jsonify({'success': True, 'settings': sanitize_settings_for_client(get_settings(storage))})
 
 
 @app.route('/api/ai/parse-bill', methods=['POST'])

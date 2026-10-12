@@ -1,4 +1,5 @@
 import os
+import time
 import json
 import re
 import unittest
@@ -475,5 +476,93 @@ class BuyerNormalizationTests(unittest.TestCase):
                 self.assertFalse(re.search(r'(?i)\b(mob|ph|phone|cell)\s*[:.\-]', line), f"Phone found in {name}: {line}")
 
 
+class ProductionSecurityHardeningTests(unittest.TestCase):
+    def setUp(self):
+        import cloud.app_cloud as ca
+        self.ca = ca
+        ca.app.config['TESTING'] = True
+        self.client = ca.app.test_client()
+        self.orig_auth_enabled = ca.app.config.get('AUTH_ENABLED')
+        self.orig_hash = ca.app.config.get('APP_PASSWORD_HASH')
+
+    def tearDown(self):
+        self.ca.app.config['AUTH_ENABLED'] = self.orig_auth_enabled
+        self.ca.app.config['APP_PASSWORD_HASH'] = self.orig_hash
+        if 'APP_PASSWORD' in self.ca.app.config:
+            del self.ca.app.config['APP_PASSWORD']
+        self.ca._request_windows.clear()
+
+    def test_password_hashing_and_no_plaintext_in_memory(self):
+        """Setting app password must compute PBKDF2 hash and never store plaintext in config."""
+        test_pw = "SafeAluminium$2026!Key"
+        self.ca.set_app_password(test_pw)
+        self.assertTrue(self.ca.app.config.get('AUTH_ENABLED'))
+        self.assertNotIn('APP_PASSWORD', self.ca.app.config)
+        stored_hash = self.ca.app.config.get('APP_PASSWORD_HASH')
+        self.assertIsNotNone(stored_hash)
+        self.assertEqual(len(stored_hash), 64)  # SHA-256 hex is 64 characters
+        self.assertNotEqual(stored_hash, test_pw)
+
+    def test_constant_time_password_verification(self):
+        """verify_app_password accepts valid password, rejects invalid or empty strings."""
+        test_pw = "SecretTestingPassword99"
+        self.ca.set_app_password(test_pw)
+        self.assertTrue(self.ca.verify_app_password(test_pw))
+        self.assertFalse(self.ca.verify_app_password("WrongPassword123"))
+        self.assertFalse(self.ca.verify_app_password(""))
+        self.assertFalse(self.ca.verify_app_password("   "))
+
+    def test_login_delay_and_session_generation(self):
+        """Valid login clears prior session and logs in; invalid login takes delay."""
+        test_pw = "CorrectProductionAuth456"
+        self.ca.set_app_password(test_pw)
+
+        # Invalid login
+        t0 = time.time()
+        resp_fail = self.client.post('/login', data={'password': 'wrong_password'})
+        elapsed = time.time() - t0
+        self.assertGreaterEqual(elapsed, 0.95, "Failed login must introduce >= 1.0s penalty delay")
+        self.assertEqual(resp_fail.status_code, 200)
+
+        # Successful login
+        resp_ok = self.client.post('/login', data={'password': test_pw})
+        self.assertEqual(resp_ok.status_code, 302)
+        with self.client.session_transaction() as sess:
+            self.assertTrue(sess.get('authenticated'))
+
+    def test_login_rate_limiting(self):
+        """Login route triggers 429 after 5 failed attempts within 60s."""
+        test_pw = "AnotherSecretKey789"
+        self.ca.set_app_password(test_pw)
+        self.ca._request_windows.clear()
+
+        # Send 5 attempts (rate limit is 5 per 60s)
+        for _ in range(5):
+            self.client.post('/login', data={'password': 'bad'}, headers={'X-Forwarded-For': '10.0.0.1'})
+
+        # 6th attempt should be blocked with 429
+        resp_blocked = self.client.post('/login', data={'password': 'bad'}, headers={'X-Forwarded-For': '10.0.0.1'})
+        self.assertEqual(resp_blocked.status_code, 429)
+
+    def test_api_settings_sanitizes_credentials(self):
+        """GET and POST /api/settings must never expose gemini_backend_api_key."""
+        resp = self.client.get('/api/settings')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+        settings = data['settings']
+        self.assertNotIn('gemini_backend_api_key', settings)
+        self.assertIn('has_backend_api_key', settings)
+
+    def test_http_security_headers_present(self):
+        """All responses must contain OWASP defensive security headers."""
+        resp = self.client.get('/health')
+        self.assertEqual(resp.headers.get('X-Content-Type-Options'), 'nosniff')
+        self.assertEqual(resp.headers.get('X-Frame-Options'), 'DENY')
+        self.assertEqual(resp.headers.get('X-XSS-Protection'), '1; mode=block')
+        self.assertEqual(resp.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
+
+
 if __name__ == '__main__':
     unittest.main()
+
