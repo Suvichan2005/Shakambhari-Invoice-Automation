@@ -1356,11 +1356,33 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
     sheet['A46'] = "IFSC No.: ICIC0000042 "
     sheet['G45'] = "For Shakambhari Enterprises"
     sheet['G48'] = "Authorised Signatory"
+    # Handle signature image
+    is_signed = bool(invoice_data.get('digitally_signed', True))
+    if not is_signed:
+        if hasattr(sheet, '_images'):
+            sheet._images = []
+    else:
+        has_img = hasattr(sheet, '_images') and len(sheet._images) > 0
+        if not has_img:
+            sig_path = Path(__file__).parent / 'static' / 'signature.png'
+            if not sig_path.exists():
+                sig_path = Path('static') / 'signature.png'
+            if sig_path.exists():
+                try:
+                    from openpyxl.drawing.image import Image as OpenpyxlImage
+                    sig_img = OpenpyxlImage(str(sig_path))
+                    sig_img.height = 55
+                    sig_img.width = int(55 * (812 / 395))
+                    sheet.add_image(sig_img, 'G45')
+                except Exception as img_err:
+                    app.logger.warning("Could not add fallback signature image: %s", img_err)
+
     sheet['A50'] = "Subject to Kolkata Jurisdiction."
 
     # Add layout marker
     sheet['Z1'] = 'v2'
     sheet.column_dimensions['Z'].hidden = True
+
 
     try:
         output = io.BytesIO()
@@ -1532,20 +1554,32 @@ def index():
         except Exception as exc:
             app.logger.warning('Could not list storage invoices for modal merge: %s', exc)
 
-    # Deduplicate recent invoices by invoice number
-    deduped_invs = {}
+    # Deduplicate invoices by unique file or distinct bill signature so multiple bills sharing
+    # the same sequential number (e.g. 61/2026-27) are preserved individually in the past records list.
+    deduped = {}
     for inv in recent_invoices:
         inv_num = str(inv.get('invoice_number', '')).strip()
         if not inv_num:
             continue
-        if inv_num not in deduped_invs:
-            deduped_invs[inv_num] = inv
+        fn = str(inv.get('filename') or '').strip().lower()
+        if fn:
+            unique_key = fn
         else:
-            prev = deduped_invs[inv_num]
-            if (inv.get('sort_ts') or 0) > (prev.get('sort_ts') or 0) or (inv.get('total_amount') and not prev.get('total_amount')):
-                deduped_invs[inv_num] = inv
-    recent_invoices = list(deduped_invs.values())
+            buyer = str(inv.get('buyer_name') or '').strip().lower()
+            date = str(inv.get('invoice_date') or '').strip().lower()
+            amt = str(inv.get('total_amount') or '').strip().lower()
+            unique_key = f"{inv_num.lower()}_{buyer}_{date}_{amt}"
+
+        if unique_key not in deduped:
+            deduped[unique_key] = inv
+        else:
+            prev = deduped[unique_key]
+            if (len(inv.get('items') or []) > len(prev.get('items') or [])) or (inv.get('file_url') and not prev.get('file_url')):
+                deduped[unique_key] = inv
+
+    recent_invoices = list(deduped.values())
     recent_invoices.sort(key=_invoice_sort_key, reverse=True)
+
 
     load_invoice_number = request.args.get('load', '').strip()
     preload_invoice = None
@@ -1883,10 +1917,7 @@ def _resolve_and_fetch_invoice_file(target: str, ext: str) -> Tuple[Optional[byt
         try:
             inv = db.get_invoice(target)
             if inv:
-                wb = generate_invoice_excel(inv)
-                out = io.BytesIO()
-                wb.save(out)
-                xlsx_bytes = out.getvalue()
+                xlsx_bytes = generate_invoice_excel(inv)
                 safe_inv_num = inv.get('invoice_number', 'invoice').replace('/', '-')
                 buyer_part = _safe_filename(inv.get('buyer_name', ''), '').replace('.xlsx', '')
                 xlsx_name = f"Invoice_{safe_inv_num}_{buyer_part}.xlsx"

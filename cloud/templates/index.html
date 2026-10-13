@@ -4798,9 +4798,22 @@
         });
 
         // ================= PAST INVOICES / RECORDS =================
-        function openInvoiceModal() {
+        async function openInvoiceModal() {
             document.getElementById('invoice_modal').style.display = 'flex';
             filterAndSortInvoices();
+            try {
+                const resp = await fetch('/api/invoices');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const list = Array.isArray(data) ? data : (data.invoices || []);
+                    if (list.length > 0) {
+                        recentInvoices = list;
+                        filterAndSortInvoices();
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not refresh past invoices from API:', e);
+            }
         }
 
         function closeInvoiceModal() {
