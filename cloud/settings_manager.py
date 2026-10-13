@@ -42,9 +42,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "gemini_primary_model": "gemini-3.8-flash",
     "gemini_backup_models": [
         "gemini-3.7-flash",
+        "gemini-3.6-flash",
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
-        "gemini-flash-latest"
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
     ],
     "gemini_backend_api_key": os.environ.get("GEMINI_API_KEY", ""),
 
@@ -53,6 +56,51 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "signatory_title": "Authorised Signatory",
     "firm_signatory_header": "For Shakambhari Enterprises"
 }
+
+DEPRECATED_OR_DISALLOWED_MODELS = {
+    "gemini-flash-latest",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-001",
+    "gemini-2.0-flash-lite",
+    "gemini-2.0-flash-lite-001",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-001",
+    "gemini-1.5-flash-002",
+    "gemini-1.5-flash-8b",
+    "gemini-1.5-pro",
+    "gemini-2.0-pro-exp",
+    "gemini-flash",
+    "gemini-pro"
+}
+
+ACTIVE_STANDARD_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite"
+]
+
+
+def sanitize_model_settings(settings: Dict[str, Any]) -> None:
+    """Filter out deprecated/disallowed models and guarantee a robust fallback queue."""
+    primary = settings.get('gemini_primary_model', 'gemini-3.8-flash')
+    if primary in DEPRECATED_OR_DISALLOWED_MODELS or not primary:
+        primary = 'gemini-3.8-flash'
+    settings['gemini_primary_model'] = primary
+
+    raw_backups = settings.get('gemini_backup_models')
+    if not isinstance(raw_backups, list):
+        raw_backups = []
+    
+    cleaned_backups = [m for m in raw_backups if m not in DEPRECATED_OR_DISALLOWED_MODELS and m != primary]
+    for m in ACTIVE_STANDARD_MODELS:
+        if m != primary and m not in cleaned_backups:
+            cleaned_backups.append(m)
+    settings['gemini_backup_models'] = cleaned_backups
 
 SETTINGS_FILE_LOCAL = Path(__file__).parent / "app_settings.json"
 GCS_SETTINGS_PATH = "config/app_settings.json"
@@ -76,6 +124,7 @@ def get_settings(storage=None) -> Dict[str, Any]:
                 gcs_data = json.loads(gcs_bytes.decode('utf-8'))
                 if isinstance(gcs_data, dict):
                     settings.update(gcs_data)
+                    sanitize_model_settings(settings)
                     _cached_settings = settings
                     return dict(settings)
         except Exception as e:
@@ -91,6 +140,7 @@ def get_settings(storage=None) -> Dict[str, Any]:
         except Exception as e:
             logger.warning("Could not load local app_settings.json: %s", e)
 
+    sanitize_model_settings(settings)
     _cached_settings = settings
     return dict(settings)
 
@@ -116,6 +166,7 @@ def update_settings(updates: Dict[str, Any], storage=None) -> Dict[str, Any]:
     if 'company_name' in updates and 'firm_signatory_header' not in updates:
         current['firm_signatory_header'] = f"For {current['company_name']}"
 
+    sanitize_model_settings(current)
     _cached_settings = current
 
     # Save to local file

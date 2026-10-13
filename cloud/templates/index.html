@@ -3019,10 +3019,15 @@
                                 <div class="field-group">
                                     <label class="field-label" for="cfg_gemini_model">Primary Vision Model</label>
                                     <select id="cfg_gemini_model" class="field-input">
-                                        <option value="gemini-3.8-flash" {% if not app_settings or app_settings.gemini_primary_model == 'gemini-3.8-flash' %}selected{% endif %}>Gemini 3.8 Flash (Default / Recommended)</option>
+                                        <option value="gemini-3.8-flash" {% if not app_settings or app_settings.gemini_primary_model == 'gemini-3.8-flash' %}selected{% endif %}>Gemini 3.8 Flash (Recommended)</option>
                                         <option value="gemini-3.7-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.7-flash' %}selected{% endif %}>Gemini 3.7 Flash</option>
+                                        <option value="gemini-3.6-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.6-flash' %}selected{% endif %}>Gemini 3.6 Flash</option>
                                         <option value="gemini-3.5-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.5-flash' %}selected{% endif %}>Gemini 3.5 Flash</option>
+                                        <option value="gemini-3.5-flash-lite" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.5-flash-lite' %}selected{% endif %}>Gemini 3.5 Flash-Lite (Fast)</option>
+                                        <option value="gemini-3.1-flash-lite" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.1-flash-lite' %}selected{% endif %}>Gemini 3.1 Flash-Lite</option>
+                                        <option value="gemini-2.5-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-2.5-flash' %}selected{% endif %}>Gemini 2.5 Flash</option>
                                     </select>
+                                    <div class="field-hint">Auto-failover queue tries backup models if primary is busy.</div>
                                 </div>
                                 <div class="field-group">
                                     <label class="field-label" for="cfg_gemini_api_key">Backend Gemini API Key</label>

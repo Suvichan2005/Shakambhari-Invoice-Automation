@@ -51,7 +51,7 @@ Transforming these informal records into official, GST-compliant tax invoices ty
 - **Multimodal Slip Ingestion:** Accepts multiple image files (JPEG, PNG, WEBP), camera captures, and direct desktop clipboard image pasting (`Ctrl + V`).
 - **Bilingual Voice Input:** Browser-level microphone integration via the Web Speech API configured for Hindi and English (`hi-IN`), transcribing spoken instructions into the assistant prompt.
 - **Context-Grounded Extraction:** Injects known buyer profiles (GSTIN, addresses, state codes), registered transport carriers, and past invoice numbers directly into the Gemini prompt for high entity-matching accuracy.
-- **Model Failover Cascade:** Uses `gemini-3.8-flash` primarily, with automated failover through `gemini-3.7-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, and `gemini-flash-latest` upon encountering rate limits (HTTP 429) or temporary server load (HTTP 503).
+- **Model Failover Cascade:** Uses `gemini-3.8-flash` primarily, with automated failover through `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, and `gemini-2.5-flash` upon encountering rate limits (HTTP 429) or temporary server load (HTTP 503). All decommissioned models (1.5, 2.0) and high-load aliases (`gemini-flash-latest`) are purged.
 - **Multi-Turn Revision Support:** Retains working draft state and chat history so users can refine extraction through follow-up prompts (e.g., *"change rate to 410"*, *"add delivery charge 300"*).
 - **Sequential Number Tracking:** Automatically queries Google Sheets and GCS to recommend the next sequential invoice number for the active financial year (e.g., `62/2026-27`), warning if an entered number already exists.
 - **Accurate GST Tax Engine:** Auto-identifies Intra-State transactions (West Bengal state code `19` $\rightarrow$ CGST 6% + SGST 6%) versus Inter-State transactions (IGST 12%), correctly applying tax over goods plus freight.
@@ -143,8 +143,8 @@ The vision extraction pipeline is implemented in [`cloud/app_cloud.py`](cloud/ap
 - **Deterministic JSON Mode:** Configured with `temperature: 0.1` and `responseMimeType: "application/json"` to ensure structured, machine-parsable responses.
 - **Model Hierarchy & Automated Failover:**
   1. Primary model: `gemini-3.8-flash` (or configured preference from Settings).
-  2. Backup models: `gemini-3.7-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-flash-latest`.
-  3. If an HTTP 429 (quota/rate limit) or HTTP 503 (server load) error is returned, the request automatically cascades to the next model in sequence.
+  2. Backup models queue: `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`.
+  3. If an HTTP 429 (quota/rate limit) or HTTP 503 (server load) error is returned, the request automatically cascades to the next model in sequence with jitter backoff. Decommissioned models (1.5, 2.0) and high-load aliases (`gemini-flash-latest`) are completely excluded.
 - **Human-in-the-Loop Principle:** Extracted data is transmitted back to the browser only to pre-fill form fields. The system prohibits autonomous commits; a human must review all numbers and manually initiate document generation.
 
 ---

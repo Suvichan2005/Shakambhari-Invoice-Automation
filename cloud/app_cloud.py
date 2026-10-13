@@ -2487,15 +2487,40 @@ def api_ai_parse_bill():
         }
     }
 
-    # Model hierarchy with automatic fallback on rate limit (429), high demand (503), or errors
-    primary_m = current_settings.get('gemini_primary_model', 'gemini-3.8-flash')
-    backup_ms = current_settings.get('gemini_backup_models', [
+    # Build resilient model hierarchy using active Gemini 3.x and 2.5 models
+    # Strictly exclude decommissioned models (1.5, 2.0) and high-load aliases (gemini-flash-latest)
+    disallowed_models = {
+        "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-001",
+        "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b",
+        "gemini-1.5-pro", "gemini-flash"
+    }
+    standard_models_pool = [
+        "gemini-3.8-flash",
         "gemini-3.7-flash",
+        "gemini-3.6-flash",
         "gemini-3.5-flash",
         "gemini-3.5-flash-lite",
-        "gemini-flash-latest"
-    ])
-    models = [primary_m] + [m for m in backup_ms if m != primary_m]
+        "gemini-3.1-flash-lite",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
+    ]
+
+    primary_m = current_settings.get('gemini_primary_model', 'gemini-3.8-flash')
+    if primary_m in disallowed_models or not primary_m:
+        primary_m = 'gemini-3.8-flash'
+
+    raw_backups = current_settings.get('gemini_backup_models') or []
+    configured_backups = [m for m in raw_backups if m not in disallowed_models and m != primary_m]
+
+    # Combine into ordered, deduplicated fallback queue with guaranteed full pool coverage
+    models = [primary_m]
+    for m in configured_backups:
+        if m not in models:
+            models.append(m)
+    for m in standard_models_pool:
+        if m not in models:
+            models.append(m)
+
     last_error = ""
 
     for model in models:
@@ -2653,16 +2678,20 @@ def api_ai_parse_bill():
 
         except urllib.error.HTTPError as he:
             err_msg = he.read().decode('utf-8', errors='ignore')
-            app.logger.warning("Gemini %s HTTP %s: %s - Failing over to backup model...", model, he.code, err_msg)
+            app.logger.warning("Gemini model %s HTTP %s: %s - Failing over to next queue candidate...", model, he.code, err_msg)
             last_error = f"{model} returned HTTP {he.code}: {err_msg}"
-            # DO NOT abort immediately on 429 or 503; smoothly try the next model in the hierarchy!
+            if he.code in (503, 429):
+                time.sleep(0.35)
             continue
         except Exception as exc:
-            app.logger.warning("Gemini %s error: %s - Failing over...", model, exc)
+            app.logger.warning("Gemini model %s error: %s - Failing over...", model, exc)
             last_error = f"{model} error: {exc}"
             continue
 
-    return jsonify({'success': False, 'error': f'All AI vision models were busy or rate-limited. Please retry shortly. Last error: {last_error}'}), 500
+    return jsonify({
+        'success': False,
+        'error': f'All active Gemini models ({len(models)} models attempted) were busy or temporarily unavailable. Please retry in a few moments. Last error: {last_error}'
+    }), 503
 
 
 @app.route('/api/ai/create-buyer', methods=['POST'])

@@ -562,6 +562,34 @@ class ProductionSecurityHardeningTests(unittest.TestCase):
         self.assertEqual(resp.headers.get('X-XSS-Protection'), '1; mode=block')
         self.assertEqual(resp.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
 
+    def test_gemini_model_fallback_queue_purges_deprecated_and_flash_latest(self):
+        """Disallowed models (flash-latest, 2.0, 1.5) must be stripped and replaced with active queue."""
+        from settings_manager import sanitize_model_settings, DEPRECATED_OR_DISALLOWED_MODELS, ACTIVE_STANDARD_MODELS
+        
+        legacy_cfg = {
+            'gemini_primary_model': 'gemini-flash-latest',
+            'gemini_backup_models': [
+                'gemini-flash-latest',
+                'gemini-2.0-flash',
+                'gemini-1.5-flash',
+                'gemini-3.7-flash'
+            ]
+        }
+        sanitize_model_settings(legacy_cfg)
+        
+        # Primary should be reset to 3.8 Flash
+        self.assertEqual(legacy_cfg['gemini_primary_model'], 'gemini-3.8-flash')
+        
+        # Backup queue must have no deprecated or flash-latest models
+        for bad in DEPRECATED_OR_DISALLOWED_MODELS:
+            self.assertNotIn(bad, legacy_cfg['gemini_backup_models'])
+            
+        # Active standard models must be present in queue
+        self.assertIn('gemini-3.7-flash', legacy_cfg['gemini_backup_models'])
+        self.assertIn('gemini-3.6-flash', legacy_cfg['gemini_backup_models'])
+        self.assertIn('gemini-3.5-flash', legacy_cfg['gemini_backup_models'])
+        self.assertIn('gemini-3.5-flash-lite', legacy_cfg['gemini_backup_models'])
+
 
 if __name__ == '__main__':
     unittest.main()
