@@ -331,6 +331,66 @@ class NonBillAndAttachmentIntegrityTests(unittest.TestCase):
         # Clarifications must not be clickable buttons that submitAiMessage
         self.assertNotIn("class=\"ai-clarification-chip\" onclick=\"submitAiMessage", content)
 
+    def test_multiturn_history_and_payload_structure(self):
+        """Verify that multi-turn history creates alternating contents and returns raw_response."""
+        from unittest.mock import patch, MagicMock
+
+        mock_gemini_resp = {
+            "conversational_message": "Updated bill 60 rate to 380.",
+            "invoices": [
+                {
+                    "invoice_number": "60/2026-27",
+                    "buyer_name": "Das Metal",
+                    "items": [{"description": "Aluminium Utensils", "quantity": 100, "rate": 380}]
+                }
+            ]
+        }
+
+        mock_http_resp = MagicMock()
+        mock_http_resp.read.return_value = json.dumps({
+            "candidates": [{
+                "content": {
+                    "parts": [{"text": json.dumps(mock_gemini_resp)}]
+                }
+            }]
+        }).encode('utf-8')
+        mock_http_resp.__enter__.return_value = mock_http_resp
+
+        captured_requests = []
+        def fake_urlopen(req, timeout=35):
+            captured_requests.append(req)
+            return mock_http_resp
+
+        with patch('urllib.request.urlopen', side_effect=fake_urlopen):
+            history = [
+                {"role": "user", "text": "bill no 60 210.4@370"},
+                {"role": "model", "text": json.dumps({"conversational_message": "Extracted bill 60"})}
+            ]
+            response = self.client.post('/api/ai/parse-bill', json={
+                'prompt': 'try again, make rate 380',
+                'history': history,
+                'api_key': 'fake-test-key'
+            })
+            self.assertEqual(response.status_code, 200)
+            data = response.get_json()
+            self.assertTrue(data['success'])
+            self.assertIn('raw_response', data)
+            self.assertEqual(len(data['invoices']), 1)
+            self.assertEqual(data['invoices'][0]['items'][0]['rate'], 380)
+
+            # Inspect payload sent to Gemini
+            self.assertTrue(len(captured_requests) > 0)
+            sent_payload = json.loads(captured_requests[0].data.decode('utf-8'))
+            self.assertIn('systemInstruction', sent_payload)
+            self.assertIn('contents', sent_payload)
+            # Should have Turn 0 (user), Turn 1 (model), Turn 2 (user)
+            contents = sent_payload['contents']
+            self.assertEqual(len(contents), 3)
+            self.assertEqual(contents[0]['role'], 'user')
+            self.assertEqual(contents[1]['role'], 'model')
+            self.assertEqual(contents[2]['role'], 'user')
+            self.assertIn('try again', contents[2]['parts'][0]['text'])
+
 
 class BuyerNormalizationTests(unittest.TestCase):
     def test_clean_line_phone_email_stripping(self):
@@ -563,13 +623,15 @@ class ProductionSecurityHardeningTests(unittest.TestCase):
         self.assertEqual(resp.headers.get('Referrer-Policy'), 'strict-origin-when-cross-origin')
 
     def test_gemini_model_fallback_queue_purges_deprecated_and_flash_latest(self):
-        """Disallowed models (flash-latest, 2.0, 1.5) must be stripped and replaced with active queue."""
+        """Disallowed models (flash-latest, 2.5, 2.0, 1.5) must be stripped and replaced with active queue."""
         from settings_manager import sanitize_model_settings, DEPRECATED_OR_DISALLOWED_MODELS, ACTIVE_STANDARD_MODELS
         
         legacy_cfg = {
             'gemini_primary_model': 'gemini-flash-latest',
             'gemini_backup_models': [
                 'gemini-flash-latest',
+                'gemini-2.5-flash',
+                'gemini-2.5-flash-lite',
                 'gemini-2.0-flash',
                 'gemini-1.5-flash',
                 'gemini-3.7-flash'
@@ -580,6 +642,10 @@ class ProductionSecurityHardeningTests(unittest.TestCase):
         # Primary should be reset to 3.8 Flash
         self.assertEqual(legacy_cfg['gemini_primary_model'], 'gemini-3.8-flash')
         
+        # 2.5 models must be in disallowed set
+        self.assertIn('gemini-2.5-flash', DEPRECATED_OR_DISALLOWED_MODELS)
+        self.assertIn('gemini-2.5-flash-lite', DEPRECATED_OR_DISALLOWED_MODELS)
+
         # Backup queue must have no deprecated or flash-latest models
         for bad in DEPRECATED_OR_DISALLOWED_MODELS:
             self.assertNotIn(bad, legacy_cfg['gemini_backup_models'])
@@ -589,6 +655,92 @@ class ProductionSecurityHardeningTests(unittest.TestCase):
         self.assertIn('gemini-3.6-flash', legacy_cfg['gemini_backup_models'])
         self.assertIn('gemini-3.5-flash', legacy_cfg['gemini_backup_models'])
         self.assertIn('gemini-3.5-flash-lite', legacy_cfg['gemini_backup_models'])
+        self.assertIn('gemini-3.1-flash-lite', legacy_cfg['gemini_backup_models'])
+
+    def test_compress_image_b64_downscales_oversized_images(self):
+        """compress_image_b64 must scale down large images to 1024 max dimension to prevent 503 errors."""
+        from cloud.app_cloud import compress_image_b64
+        from PIL import Image
+        import io
+        import base64
+
+        # Create a 2000x1200 test image in memory
+        im = Image.new('RGB', (2000, 1200), color=(180, 200, 220))
+        buf = io.BytesIO()
+        im.save(buf, format='JPEG')
+        raw_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+
+        comp_b64, mtype = compress_image_b64(raw_b64, max_dimension=1024, quality=72)
+        self.assertEqual(mtype, 'image/jpeg')
+
+        # Decode compressed image and verify dimensions
+        comp_bytes = base64.b64decode(comp_b64)
+        with Image.open(io.BytesIO(comp_bytes)) as out_im:
+            self.assertLessEqual(max(out_im.size), 1024)
+            self.assertLess(len(comp_b64), len(raw_b64))
+
+
+class AadhaarBuyerProfileNormalizationTests(unittest.TestCase):
+    def test_aadhaar_card_extracts_name_strips_father_and_prevents_fake_gstin(self):
+        """Aadhaar card details must strip father's name, set gstin to empty, and output canonical AADHAAR line."""
+        from cloud.buyer_normalizer import normalize_buyer_profile
+
+        raw_profile = {
+            'buyer_name': 'Ram Prasad Sharma',
+            'buyer_details': [
+                'Buyer :',
+                'Ram Prasad Sharma',
+                'C/O: Hari Prasad Sharma',
+                'Village - Liluah, PO - Liluah',
+                'Howrah, West Bengal - 711204',
+                'Aadhaar - 7281 9283 1928'
+            ],
+            'gstin': 'AADHAR-72',  # Mistakenly set by upstream or model
+            'state': 'West Bengal',
+            'state_code': '19'
+        }
+
+        norm = normalize_buyer_profile(raw_profile)
+
+        # 1. Buyer name is cardholder's person name
+        self.assertEqual(norm['buyer_name'], 'Ram Prasad Sharma')
+
+        # 2. GSTIN must be empty - NOT a fake GSTIN or Aadhaar string!
+        self.assertEqual(norm['gstin'], '')
+
+        # 3. Aadhaar is normalized to 12 digits
+        self.assertEqual(norm['aadhaar'], '7281 9283 1928')
+
+        details = norm['buyer_details']
+
+        # 4. Father's / care-of name must be completely stripped
+        for line in details:
+            self.assertNotIn('Hari Prasad', line)
+            self.assertNotIn('C/O', line)
+            self.assertNotIn('S/O', line)
+
+        # 5. Must NOT have 'GSTIN - AADHAR-72' or any GSTIN line
+        for line in details:
+            self.assertFalse(line.startswith('GSTIN -'), f"Found unexpected GSTIN line: {line}")
+
+        # 6. Must have the single canonical AADHAAR line
+        self.assertIn('AADHAAR - 7281 9283 1928', details)
+
+        # 7. Must have state code line
+        self.assertIn('STATE- WEST BENGAL CODE-19', details)
+
+    def test_strip_care_of_inline_prefix(self):
+        """Inline C/O or S/O prefix in address lines must be stripped without removing the rest of the address."""
+        from cloud.buyer_normalizer import clean_line_phone_email
+
+        line1 = "C/O: Mohan Lal Gupta, 45, Station Road, Howrah - 711101"
+        cleaned1 = clean_line_phone_email(line1)
+        self.assertNotIn('Mohan Lal', cleaned1)
+        self.assertIn('Station Road', cleaned1)
+
+        line2 = "S/O Late Ramesh Chandra"
+        cleaned2 = clean_line_phone_email(line2)
+        self.assertEqual(cleaned2, '')
 
 
 if __name__ == '__main__':

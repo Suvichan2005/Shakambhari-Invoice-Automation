@@ -928,18 +928,22 @@ def api_get_invoice(invoice_number):
 
 
 @app.route('/api/load_invoice/<filename>')
+@app.route('/api/invoice-file/<path:filename>')
 def api_load_invoice(filename):
     """Load invoice data from an existing Excel file."""
-    filepath = os.path.join(OUTPUT_DIR, filename)
+    # Sanitize filename
+    clean_fname = os.path.basename(filename)
+    filepath = os.path.join(OUTPUT_DIR, clean_fname)
     
     if not os.path.exists(filepath):
-        return jsonify({"error": "Invoice file not found"}), 404
+        return jsonify({"error": "Invoice file not found", "success": False}), 404
     
     data = extract_invoice_data(filepath)
     if data:
-        return jsonify(data)
+        return jsonify({'success': True, 'invoice': data, **data})
     else:
-        return jsonify({"error": "Failed to extract invoice data"}), 500
+        return jsonify({"error": "Failed to extract invoice data", "success": False}), 500
+
 
 
 @app.route('/api/invoices')
@@ -1091,14 +1095,25 @@ def api_ai_parse_bill_local():
         return jsonify({'success': False, 'error': f'AI parse error: {e}'}), 500
 
 
+@app.route('/api/buyer/save', methods=['POST'])
 @app.route('/api/ai/create-buyer', methods=['POST'])
 def api_ai_create_buyer_local():
-    """Delegate AI buyer creation to cloud module implementation if available."""
+    """Delegate buyer save or creation to cloud module implementation if available."""
     try:
-        from cloud.app_cloud import api_ai_create_buyer
-        return api_ai_create_buyer()
+        from cloud.app_cloud import api_save_buyer
+        return api_save_buyer()
     except Exception as e:
         return jsonify({'success': False, 'error': f'AI create buyer error: {e}'}), 500
+
+
+@app.route('/api/buyer/<profile_id>', methods=['GET'])
+def api_get_buyer_local(profile_id):
+    """Delegate buyer get to cloud module."""
+    try:
+        from cloud.app_cloud import api_get_buyer
+        return api_get_buyer(profile_id)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Buyer error: {e}'}), 500
 
 
 @app.route('/logout', methods=['GET', 'POST'])

@@ -31,12 +31,33 @@ CITY_STATE_MAP = {
 }
 
 
+def strip_care_of_or_father(line: str) -> str:
+    """
+    Remove father/husband/care-of names from address lines (common on Aadhaar cards: C/O, S/O, D/O, W/O).
+    Returns empty string if the entire line was care-of/father name, or stripped line if inline.
+    """
+    s = (line or '').strip()
+    if not s:
+        return ''
+    # Pure father/husband/care-of line (e.g. "C/O: Ramu Sharma", "S/O Hari Prasad", "W/O - Late ...", "Father's Name: ...")
+    if re.match(r'(?i)^\s*(c/o|s/o|d/o|w/o|care\s*of|father(\'?s)?\s*(name)?|husband(\'?s)?\s*(name)?)\s*[:.\-/#]?\s*[A-Za-z\s.]+$', s):
+        return ''
+    # Inline prefix (e.g. "C/O: Ramu Sharma, Vill-...", "S/O - Mohan Lal, House No...")
+    s = re.sub(r'(?i)^\s*(c/o|s/o|d/o|w/o|care\s*of|father(\'?s)?\s*(name)?|husband(\'?s)?\s*(name)?)\s*[:.\-/#]?\s*[A-Za-z\s.]+[,;\-/]\s*', '', s)
+    return s.strip()
+
+
 def clean_line_phone_email(line: str) -> str:
     """
-    Strip email addresses, phone/mobile/fax numbers from an address line.
+    Strip email addresses, phone/mobile/fax numbers, and care-of/father names from an address line.
     Preserves 6-digit postal PIN codes (e.g. 711315, 781001, PIN - 743125).
     """
     s = (line or '').strip()
+    if not s:
+        return ''
+
+    # 0. Strip care-of / father / husband names (Aadhaar cards)
+    s = strip_care_of_or_father(s)
     if not s:
         return ''
 
@@ -72,28 +93,58 @@ def normalize_buyer_profile(p: Dict[str, Any]) -> Dict[str, Any]:
     1. Canonical lines:
        - Line 1: 'Buyer :'
        - Line 2: <Buyer Name>
-       - Lines 3..k: Address lines (stripped of phone numbers, emails, and embedded state codes)
+       - Lines 3..k: Address lines (stripped of phone numbers, emails, father/care-of names, and embedded state codes)
        - Next to last: 'STATE- <STATE_NAME> CODE-<STATE_CODE>' (mandatory unless otherwise mentioned)
-       - Last: 'GSTIN - <GSTIN>' or 'PAN NO. - ...'
+       - Last: 'GSTIN - <GSTIN>' or 'AADHAAR - <AADHAAR>' or 'PAN NO. - ...'
     2. Infers state code and state name from GSTIN first 2 digits or city/region fallback.
-    3. Normalizes top-level 'gstin', 'state', 'state_code', and 'default_tax_type' (CGST_SGST for 19, IGST for others).
+    3. Normalizes top-level 'gstin', 'aadhaar', 'state', 'state_code', and 'default_tax_type'.
     """
     buyer_name = (p.get('buyer_name') or '').strip()
     raw_lines = p.get('buyer_details') or []
     if isinstance(raw_lines, str):
         raw_lines = [line.strip() for line in raw_lines.splitlines() if line.strip()]
 
-    gstin = (p.get('gstin') or '').strip().upper()
+    raw_gstin = (p.get('gstin') or '').strip().upper()
+    raw_aadhaar = (p.get('aadhaar') or p.get('aadhar') or '').strip()
 
-    # Step 1: Detect and extract GSTIN if present in lines
-    for l in raw_lines:
-        clean_l = re.sub(r'[\s\xa0\u00a0\ufffd]+', ' ', str(l))
-        m = re.search(r'\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})\b', clean_l.upper())
-        if m:
-            gstin = m.group(1)
-            break
+    # Step 1: Detect and extract Aadhaar if present in gstin, explicit field, or lines
+    aadhaar = ''
+    if raw_aadhaar:
+        digits = re.sub(r'\D', '', raw_aadhaar)
+        if len(digits) == 12:
+            aadhaar = f"{digits[:4]} {digits[4:8]} {digits[8:12]}"
+        else:
+            aadhaar = raw_aadhaar
 
-    # Step 2: Detect state and state code
+    if not aadhaar and ('AADHAR' in raw_gstin or 'AADHAAR' in raw_gstin or len(re.sub(r'\D', '', raw_gstin)) == 12):
+        digits = re.sub(r'\D', '', raw_gstin)
+        if len(digits) == 12:
+            aadhaar = f"{digits[:4]} {digits[4:8]} {digits[8:12]}"
+        raw_gstin = ''
+
+    if not aadhaar:
+        for l in raw_lines:
+            clean_l = re.sub(r'[\s\xa0\u00a0\ufffd]+', ' ', str(l))
+            m_aadh = re.search(r'(?i)\b(?:aadha?ar(?:\s*no\.?)?[\s:\-_]*)?(\d{4}[\s\-]?\d{4}[\s\-]?\d{4})\b', clean_l)
+            if m_aadh:
+                digits = re.sub(r'\D', '', m_aadh.group(1))
+                if len(digits) == 12:
+                    aadhaar = f"{digits[:4]} {digits[4:8]} {digits[8:12]}"
+                    break
+
+    # Step 2: Validate GSTIN - strictly 15 characters, never an Aadhaar or placeholder
+    gstin = ''
+    if re.match(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$', raw_gstin):
+        gstin = raw_gstin
+    else:
+        for l in raw_lines:
+            clean_l = re.sub(r'[\s\xa0\u00a0\ufffd]+', ' ', str(l))
+            m = re.search(r'\b([0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1})\b', clean_l.upper())
+            if m:
+                gstin = m.group(1)
+                break
+
+    # Step 3: Detect state and state code
     state_code = (p.get('state_code') or '').strip()
     state_name = ''
 
@@ -142,7 +193,7 @@ def normalize_buyer_profile(p: Dict[str, Any]) -> Dict[str, Any]:
     if state_code and not state_name and state_code in GST_STATE_MAP:
         state_name = GST_STATE_MAP[state_code]
 
-    # Step 3: Clean address lines (strip phone, email, and embedded state codes)
+    # Step 4: Clean address lines (strip phone, email, father/care-of, and embedded state codes)
     cleaned_address_lines = []
     pan_line = ''
     for l in raw_lines:
@@ -161,6 +212,15 @@ def normalize_buyer_profile(p: Dict[str, Any]) -> Dict[str, Any]:
         # Check if GST line
         if re.search(r'(?i)\bgst(in|\s*no)?\b', clean_l) or (gstin and gstin in clean_l.upper()):
             continue
+        # Check if Aadhaar line or contains Aadhaar number
+        if re.search(r'(?i)\b(aadhaar|aadhar)\b', clean_l):
+            continue
+        if aadhaar:
+            clean_digits = re.sub(r'\D', '', clean_l)
+            aadhaar_digits = re.sub(r'\D', '', aadhaar)
+            if aadhaar_digits and aadhaar_digits in clean_digits:
+                continue
+
         # Check if line was a dedicated state code line (e.g. 'STATE- ASSAM CODE-18', 'Tripura Code : 16', 'STATE CODE - 20')
         if re.fullmatch(r'(?i)^\s*(state\s*[-:]?)?[A-Za-z\s]*code\s*[:\-]?\s*\d{1,2}\s*$', clean_l) or re.fullmatch(r'(?i)^\s*state\s*[-:]?\s*[A-Za-z\s]*\s*$', clean_l):
             continue
@@ -170,16 +230,19 @@ def normalize_buyer_profile(p: Dict[str, Any]) -> Dict[str, Any]:
         # Strip embedded CODE - XX at the end of town lines (e.g. DHARMANAGAR, TRIPURA-799250 CODE-16)
         clean_l = re.sub(r'(?i)[,\s\-]+code\s*[-:]?\s*\d{1,2}\b', '', clean_l).strip()
 
-        # If line is just 'STATE' or matches a known state name, skip it since canonical STATE line is added
-        if clean_l.upper() in {'STATE', 'STATE:', 'STATE -'} or clean_l.upper() in GST_STATE_MAP.values():
+        # If line is dedicated state line or matches a known state name, skip it since canonical STATE line is added
+        if re.match(r'(?i)^\s*state\s*[:\-]\s*[A-Za-z\s]+$', clean_l):
+            continue
+        clean_upper = clean_l.upper().replace(' ', '').replace('-', '').replace(':', '')
+        if clean_upper in {'STATE'} or clean_upper in [s.upper().replace(' ', '') for s in GST_STATE_MAP.values()]:
             continue
 
-        # Strip phone & email
+        # Strip phone, email, and care-of/father name
         clean_l = clean_line_phone_email(clean_l)
         if clean_l and clean_l.lower() != buyer_name.lower():
             cleaned_address_lines.append(clean_l)
 
-    # Step 4: Assemble canonical lines
+    # Step 5: Assemble canonical lines
     final_lines = ['Buyer :']
     if buyer_name and buyer_name != 'Buyer :':
         final_lines.append(buyer_name)
@@ -189,9 +252,11 @@ def normalize_buyer_profile(p: Dict[str, Any]) -> Dict[str, Any]:
     if state_code and state_name:
         final_lines.append(f'STATE- {state_name} CODE-{state_code}')
 
-    # Add GSTIN or PAN line
+    # Add GSTIN, AADHAAR, or PAN line (strictly one identifier line at the end)
     if gstin:
         final_lines.append(f'GSTIN - {gstin}')
+    elif aadhaar:
+        final_lines.append(f'AADHAAR - {aadhaar}')
     elif pan_line:
         final_lines.append(pan_line)
 
@@ -202,6 +267,7 @@ def normalize_buyer_profile(p: Dict[str, Any]) -> Dict[str, Any]:
         'buyer_name': buyer_name,
         'buyer_details': final_lines,
         'gstin': gstin,
+        'aadhaar': aadhaar,
         'state': state_name.title() if state_name else p.get('state', ''),
         'state_code': state_code or p.get('state_code', ''),
         'default_tax_type': tax_type

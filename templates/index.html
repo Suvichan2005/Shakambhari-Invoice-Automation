@@ -861,14 +861,22 @@
             flex-wrap: wrap;
         }
 
-        .badge-gstin {
+        .badge-gstin, .badge-aadhaar {
             background: #ede9fe;
             color: #6d28d9;
-            padding: 2px 7px;
+            padding: 3px 8px;
             border-radius: 6px;
-            font-size: 0.76rem;
+            font-size: 0.78rem;
             font-weight: 600;
             font-family: 'JetBrains Mono', monospace;
+            white-space: normal;
+            word-break: break-word;
+            max-width: 100%;
+        }
+
+        .badge-aadhaar {
+            background: #fef3c7;
+            color: #92400e;
         }
 
         .badge-state {
@@ -887,6 +895,42 @@
             border-radius: 6px;
             font-size: 0.76rem;
             font-weight: 600;
+        }
+
+        .btn-edit-party-pill {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+            border-radius: 9999px;
+            padding: 4px 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-edit-party-pill:hover {
+            background: #fde68a;
+        }
+
+        .btn-dropdown-edit {
+            background: #f8fafc;
+            color: var(--primary-600);
+            border: 1px solid var(--slate-300);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.12s ease;
+        }
+
+        .btn-dropdown-edit:hover {
+            background: #eff6ff;
+            border-color: #93c5fd;
         }
 
         .address-box {
@@ -2516,7 +2560,7 @@
                                 <p class="step-desc">Search saved parties or let assistant auto-match</p>
                             </div>
                         </div>
-                        <a href="{{ url_for('manage_profile') }}" class="btn-inline-pill" style="text-decoration: none;">+ Add Buyer</a>
+                        <button type="button" id="btn_open_add_buyer" class="btn-inline-pill" onclick="openEditBuyerModal('')">+ Add Buyer</button>
                     </div>
 
                     <div class="form-grid">
@@ -2532,12 +2576,17 @@
                         <!-- Selected Buyer Details Card -->
                         <div id="buyer_selected_card" class="buyer-details-card" style="display: none;">
                             <div class="buyer-details-header">
-                                <div class="buyer-name-badge" id="buyer_card_name">-</div>
-                                <div class="buyer-badges">
-                                    <span class="badge-gstin" id="buyer_card_gstin">GSTIN: -</span>
-                                    <span class="badge-state" id="buyer_card_state">State: -</span>
-                                    <span class="badge-tax-rec" id="buyer_card_tax_rec">IGST 5%</span>
+                                <div style="flex: 1; min-width: 0;">
+                                    <div class="buyer-name-badge" id="buyer_card_name">-</div>
+                                    <div class="buyer-badges">
+                                        <span class="badge-gstin" id="buyer_card_gstin">GSTIN: -</span>
+                                        <span class="badge-state" id="buyer_card_state">State: -</span>
+                                        <span class="badge-tax-rec" id="buyer_card_tax_rec">IGST 5%</span>
+                                    </div>
                                 </div>
+                                <button type="button" class="btn-edit-party-pill" onclick="openEditBuyerModal()" title="Edit party details">
+                                    ✏️ Edit Party
+                                </button>
                             </div>
                             <div class="address-box" id="buyer_card_address">-</div>
                         </div>
@@ -2599,7 +2648,7 @@
                     </div>
 
                     <div class="items-footer-bar">
-                        <button type="button" class="btn-add-item" onclick="addItemRow()">
+                        <button type="button" id="btn_add_item" class="btn-add-item" onclick="addItemRow()">
                             <span>+</span>
                             <span>Add Item Row</span>
                         </button>
@@ -2740,7 +2789,7 @@
             </div>
 
             <!-- Primary Generate Button (Desktop) -->
-            <button type="button" class="btn-generate-main" onclick="submitInvoiceForm()">
+            <button type="button" id="btn_generate_bill_desktop" class="btn-generate-main" onclick="submitInvoiceForm()">
                 <span>📄</span>
                 <span>Generate GST Invoice (Excel & PDF)</span>
             </button>
@@ -2759,7 +2808,7 @@
                 <span id="dock_toggle_icon">👁️</span>
                 <span id="dock_toggle_text">Slip Preview</span>
             </button>
-            <button type="button" class="btn-mobile-generate" onclick="submitInvoiceForm()">
+            <button type="button" id="btn_generate_bill" class="btn-mobile-generate" onclick="submitInvoiceForm()">
                 <span>📄</span>
                 <span>Generate Bill</span>
             </button>
@@ -3019,13 +3068,14 @@
                                 <div class="field-group">
                                     <label class="field-label" for="cfg_gemini_model">Primary Vision Model</label>
                                     <select id="cfg_gemini_model" class="field-input">
-                                        <option value="gemini-3.8-flash" {% if not app_settings or app_settings.gemini_primary_model == 'gemini-3.8-flash' %}selected{% endif %}>Gemini 3.8 Flash (Recommended)</option>
+                                        <option value="gemini-3.8-flash" {% if not app_settings or app_settings.gemini_primary_model == 'gemini-3.8-flash' %}selected{% endif %}>Gemini 3.8 Flash (Latest &amp; Recommended)</option>
                                         <option value="gemini-3.7-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.7-flash' %}selected{% endif %}>Gemini 3.7 Flash</option>
+                                        <option value="gemini-3-flash-preview" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3-flash-preview' %}selected{% endif %}>Gemini 3 Flash Preview</option>
+                                        <option value="gemini-3.1-flash-lite" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.1-flash-lite' %}selected{% endif %}>Gemini 3.1 Flash-Lite</option>
+                                        <option value="gemini-3.1-flash-lite-preview" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.1-flash-lite-preview' %}selected{% endif %}>Gemini 3.1 Flash-Lite Preview</option>
                                         <option value="gemini-3.6-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.6-flash' %}selected{% endif %}>Gemini 3.6 Flash</option>
                                         <option value="gemini-3.5-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.5-flash' %}selected{% endif %}>Gemini 3.5 Flash</option>
-                                        <option value="gemini-3.5-flash-lite" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.5-flash-lite' %}selected{% endif %}>Gemini 3.5 Flash-Lite (Fast)</option>
-                                        <option value="gemini-3.1-flash-lite" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.1-flash-lite' %}selected{% endif %}>Gemini 3.1 Flash-Lite</option>
-                                        <option value="gemini-2.5-flash" {% if app_settings and app_settings.gemini_primary_model == 'gemini-2.5-flash' %}selected{% endif %}>Gemini 2.5 Flash</option>
+                                        <option value="gemini-3.5-flash-lite" {% if app_settings and app_settings.gemini_primary_model == 'gemini-3.5-flash-lite' %}selected{% endif %}>Gemini 3.5 Flash-Lite</option>
                                     </select>
                                     <div class="field-hint">Auto-failover queue tries backup models if primary is busy.</div>
                                 </div>
@@ -3047,6 +3097,62 @@
         </div>
     </div>
 
+    <!-- EDIT / CREATE BUYER MODAL -->
+    <div id="modal_edit_buyer" class="modal-overlay" style="display: none;">
+        <div class="modal-window" style="max-width: 640px;">
+            <div class="modal-header-modern">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 1.3rem;">🏢</span>
+                    <h3 id="modal_edit_buyer_title" style="margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--slate-900);">Edit Party Details</h3>
+                </div>
+                <button type="button" class="modal-close-btn" onclick="closeEditBuyerModal()">&times;</button>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; max-height: calc(85vh - 120px);">
+                <input type="hidden" id="edit_buyer_profile_id">
+                <div class="field-group" style="margin-bottom: 14px;">
+                    <label class="field-label" for="edit_buyer_name">Party / Buyer Name *</label>
+                    <input type="text" id="edit_buyer_name" class="field-input" placeholder="e.g. Das Metal Works" required>
+                </div>
+                <div class="field-group" style="margin-bottom: 14px;">
+                    <label class="field-label" for="edit_buyer_details">Address Details (One line per row)</label>
+                    <textarea id="edit_buyer_details" class="field-textarea" rows="4" placeholder="Premises / Shop No.&#10;Street / Market Road&#10;City, District - PIN Code"></textarea>
+                    <div class="field-hint">Phone numbers, emails, and father/care-of names are automatically cleaned.</div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div class="field-group">
+                        <label class="field-label" for="edit_buyer_gstin">GSTIN (15 Digits)</label>
+                        <input type="text" id="edit_buyer_gstin" class="field-input" placeholder="e.g. 19AAACD1234E1Z5" maxlength="15" style="text-transform: uppercase;">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" for="edit_buyer_aadhaar">Aadhaar (If No GST)</label>
+                        <input type="text" id="edit_buyer_aadhaar" class="field-input" placeholder="e.g. 1234 5678 9012" maxlength="14">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
+                    <div class="field-group">
+                        <label class="field-label" for="edit_buyer_state">State</label>
+                        <input type="text" id="edit_buyer_state" class="field-input" placeholder="e.g. West Bengal, Bihar, Assam">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label" for="edit_buyer_state_code">State Code</label>
+                        <input type="text" id="edit_buyer_state_code" class="field-input" placeholder="e.g. 19" maxlength="2">
+                    </div>
+                </div>
+                <div class="field-group" style="margin-bottom: 20px;">
+                    <label class="field-label" for="edit_buyer_tax_type">Tax Type</label>
+                    <select id="edit_buyer_tax_type" class="field-input">
+                        <option value="IGST">Inter-State Sale: IGST (5%)</option>
+                        <option value="CGST_SGST">Intra-State Sale: CGST (2.5%) + SGST (2.5%)</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn btn-nav-outline" onclick="closeEditBuyerModal()" style="min-height: 42px;">Cancel</button>
+                    <button type="button" id="btn_save_buyer_modal" class="btn btn-ai-glow" onclick="saveBuyerFromModal()" style="min-height: 42px;">💾 Save Party Details</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- CLIENT SCRIPT -->
     <script>
         const buyerProfiles = {{ buyer_profiles|tojson|safe }};
@@ -3057,8 +3163,12 @@
         const openRecordsOnLoad = {{ 'true' if open_records else 'false' }};
         const serverTodayDate = '{{ today_date }}';
 
+        window.lastExtractedInvoices = [];
+        window.lastExtractedAiData = null;
         let uploadedAiImages = [];
-        let lastExtractedAiData = null;
+        let aiSessionImages = [];
+        let lastExtractedAiData = window.lastExtractedAiData;
+        let lastExtractedInvoices = window.lastExtractedInvoices;
         let aiConversationHistory = [];
         let currentTaxType = 'IGST';
         let itemRowIndex = 0;
@@ -3069,11 +3179,15 @@
             if (!lines) return [];
             if (typeof lines === 'string') lines = lines.split(/[\r\n]+/);
             if (!Array.isArray(lines)) return [];
+            const hasCanonicalStateCode = lines.some(l => /\bstate\s*[-:]?\s*[A-Za-z\s]+[-:]?\s*code\s*[-:]?\s*\d{1,2}\b/i.test(String(l || '')));
             return lines.filter(l => {
                 const s = String(l || '').trim();
                 return s && !/^(buyer|ship\s*to)\s*:\s*$/i.test(s);
             }).map(l => {
                 let s = String(l || '').trim().replace(/^(buyer|ship\s*to)\s*:\s*/i, '');
+                // Strip father / care-of / husband names (Aadhaar cards)
+                if (/^\s*(c\/o|s\/o|d\/o|w\/o|care\s*of|father('?s)?\s*(name)?|husband('?s)?\s*(name)?)\s*[:.\-/#]?\s*[A-Za-z\s.]+$/i.test(s)) return '';
+                s = s.replace(/^\s*(c\/o|s\/o|d\/o|w\/o|care\s*of|father('?s)?\s*(name)?|husband('?s)?\s*(name)?)\s*[:.\-/#]?\s*[A-Za-z\s.]+[,;\-/]\s*/i, '');
                 // Strip emails
                 s = s.replace(/\b(email|e-mail|mail|contact)\s*[:.\-]?\s*[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, '');
                 s = s.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gi, '');
@@ -3085,6 +3199,12 @@
                 // Strip STD landlines
                 s = s.replace(/\b0\d{2,4}[\-\s]?\d{6,8}\b/g, '');
                 if (/^\s*(email|e-mail|mail|ph(\.|\s*no)?|phone|mob(ile)?|tel(ephone)?|contact|call|cell|fax|m)\s*[:.\-/#]?\s*$/i.test(s)) return '';
+                // Drop redundant "State: <State>" label if canonical state code exists or state already in address
+                if (/^\s*state\s*[:\-]\s*[A-Za-z\s]+$/i.test(s)) {
+                    if (hasCanonicalStateCode) return '';
+                    const sVal = s.replace(/^\s*state\s*[:\-]\s*/i, '').trim();
+                    if (lines.some(other => other !== l && String(other).toLowerCase().includes(sVal.toLowerCase()))) return '';
+                }
                 s = s.replace(/\s*[/,]\s*[/,]+/g, ',');
                 s = s.replace(/[\s,:\-/]+$/, '');
                 s = s.replace(/^[\s,:\-/]+/, '');
@@ -3406,15 +3526,44 @@
                 dropdown.innerHTML = '<div style="padding: 12px; color: var(--slate-400); text-align: center;">No matching parties found</div>';
                 return;
             }
-            dropdown.innerHTML = list.map(b => `
+            dropdown.innerHTML = list.map(b => {
+                const badgeLabel = b.aadhaar ? `Aadhaar: ${b.aadhaar}` : (b.gstin ? `GSTIN: ${b.gstin}` : 'Unregistered');
+                return `
                 <div class="buyer-dropdown-item" onclick="selectBuyer('${b.profile_id}')">
-                    <div class="buyer-item-name">${escapeHtml(b.buyer_name)}</div>
-                    <div class="buyer-item-meta">
-                        <span>GSTIN: ${b.gstin || 'None'}</span>
-                        <span>State: ${b.state || 'N/A'} (${b.state_code || ''})</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 8px;">
+                        <div>
+                            <div class="buyer-item-name">${escapeHtml(b.buyer_name)}</div>
+                            <div class="buyer-item-meta">
+                                <span>${escapeHtml(badgeLabel)}</span>
+                                <span>State: ${b.state || 'N/A'} (${b.state_code || ''})</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-dropdown-edit" onclick="event.stopPropagation(); openEditBuyerModal('${b.profile_id}')" title="Edit this buyer">
+                            ✏️ Edit
+                        </button>
                     </div>
                 </div>
-            `).join('');
+            `;}).join('');
+        }
+
+        function updateBuyerCardBadges(buyer) {
+            const gstinBadge = document.getElementById('buyer_card_gstin');
+            if (!gstinBadge) return;
+            const rawGstin = (buyer.gstin || buyer.buyer_gstin || '').trim();
+            const rawAadhaar = (buyer.aadhaar || '').trim();
+            const hasAadhaar = rawAadhaar || /(?:aadhar|aadhaar)/i.test(rawGstin) || (rawGstin.replace(/\D/g, '').length === 12);
+
+            if (hasAadhaar) {
+                const aadhVal = rawAadhaar || rawGstin.replace(/aadha?ar[\s\-_:]*/gi, '').trim();
+                gstinBadge.textContent = `Aadhaar: ${aadhVal}`;
+                gstinBadge.className = 'badge-aadhaar';
+            } else if (rawGstin && /^[0-9]{2}[A-Z]{5}/i.test(rawGstin)) {
+                gstinBadge.textContent = `GSTIN: ${rawGstin}`;
+                gstinBadge.className = 'badge-gstin';
+            } else {
+                gstinBadge.textContent = 'Unregistered (No GSTIN)';
+                gstinBadge.className = 'badge-gstin';
+            }
         }
 
         function selectBuyer(profileId) {
@@ -3427,7 +3576,7 @@
 
             document.getElementById('buyer_selected_card').style.display = 'block';
             document.getElementById('buyer_card_name').textContent = buyer.buyer_name;
-            document.getElementById('buyer_card_gstin').textContent = buyer.gstin ? `GSTIN: ${buyer.gstin}` : 'No GSTIN';
+            updateBuyerCardBadges(buyer);
             document.getElementById('buyer_card_state').textContent = `State: ${buyer.state || 'N/A'} (${buyer.state_code || ''})`;
 
             const isWB = String(buyer.state_code || '').trim() === '19';
@@ -3440,6 +3589,166 @@
 
             updatePreview();
             return true;
+        }
+
+        function openEditBuyerModal(profileId) {
+            let buyer = null;
+            if (profileId) {
+                buyer = buyerProfiles.find(b => b.profile_id === profileId);
+            } else {
+                const curId = document.getElementById('buyer_profile_id')?.value;
+                if (curId) {
+                    buyer = buyerProfiles.find(b => b.profile_id === curId);
+                }
+            }
+
+            const titleEl = document.getElementById('modal_edit_buyer_title');
+            const idEl = document.getElementById('edit_buyer_profile_id');
+            const nameEl = document.getElementById('edit_buyer_name');
+            const detailsEl = document.getElementById('edit_buyer_details');
+            const gstinEl = document.getElementById('edit_buyer_gstin');
+            const aadhaarEl = document.getElementById('edit_buyer_aadhaar');
+            const stateEl = document.getElementById('edit_buyer_state');
+            const stateCodeEl = document.getElementById('edit_buyer_state_code');
+            const taxSelect = document.getElementById('edit_buyer_tax_type');
+
+            if (buyer) {
+                if (titleEl) titleEl.textContent = `Edit Party: ${buyer.buyer_name}`;
+                if (idEl) idEl.value = buyer.profile_id || '';
+                if (nameEl) nameEl.value = buyer.buyer_name || '';
+
+                let cleanLines = cleanAddressLines(buyer.buyer_details || []);
+                cleanLines = cleanLines.filter(l => l && !l.toLowerCase().startsWith('buyer :') && l.toLowerCase() !== (buyer.buyer_name || '').toLowerCase());
+                cleanLines = cleanLines.filter(l => !/^state\s*[-:]/i.test(l) && !/^gstin\s*[-:]/i.test(l) && !/^aadha?ar\s*[-:]/i.test(l));
+                if (detailsEl) detailsEl.value = cleanLines.join('\n');
+
+                if (gstinEl) gstinEl.value = buyer.gstin || '';
+                if (aadhaarEl) aadhaarEl.value = buyer.aadhaar || '';
+                if (stateEl) stateEl.value = buyer.state || 'West Bengal';
+                if (stateCodeEl) stateCodeEl.value = buyer.state_code || '19';
+                if (taxSelect) taxSelect.value = buyer.default_tax_type || (String(buyer.state_code || '') === '19' ? 'CGST_SGST' : 'IGST');
+            } else {
+                if (titleEl) titleEl.textContent = '+ Add New Party / Buyer';
+                if (idEl) idEl.value = '';
+                if (nameEl) nameEl.value = '';
+                if (detailsEl) detailsEl.value = '';
+                if (gstinEl) gstinEl.value = '';
+                if (aadhaarEl) aadhaarEl.value = '';
+                if (stateEl) stateEl.value = 'West Bengal';
+                if (stateCodeEl) stateCodeEl.value = '19';
+                if (taxSelect) taxSelect.value = 'CGST_SGST';
+            }
+
+            document.getElementById('modal_edit_buyer').style.display = 'flex';
+        }
+
+        function closeEditBuyerModal() {
+            document.getElementById('modal_edit_buyer').style.display = 'none';
+        }
+
+        async function saveBuyerFromModal() {
+            const nameEl = document.getElementById('edit_buyer_name');
+            const buyerName = (nameEl?.value || '').trim();
+            if (!buyerName) {
+                alert('Please enter a party / buyer name.');
+                if (nameEl) nameEl.focus();
+                return;
+            }
+
+            const btn = document.getElementById('btn_save_buyer_modal');
+            const origText = btn ? btn.innerHTML : 'Save';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Saving...';
+            }
+
+            const profileId = document.getElementById('edit_buyer_profile_id')?.value || '';
+            const detailsText = document.getElementById('edit_buyer_details')?.value || '';
+            const gstinVal = (document.getElementById('edit_buyer_gstin')?.value || '').trim().toUpperCase();
+            const aadhaarVal = (document.getElementById('edit_buyer_aadhaar')?.value || '').trim();
+            const stateVal = (document.getElementById('edit_buyer_state')?.value || '').trim();
+            const stateCodeVal = (document.getElementById('edit_buyer_state_code')?.value || '').trim();
+            const taxVal = document.getElementById('edit_buyer_tax_type')?.value || 'IGST';
+
+            const payload = {
+                profile_id: profileId,
+                buyer_name: buyerName,
+                buyer_details: detailsText,
+                gstin: gstinVal,
+                aadhaar: aadhaarVal,
+                state: stateVal,
+                state_code: stateCodeVal,
+                default_tax_type: taxVal
+            };
+
+            try {
+                const resp = await fetch('/api/buyer/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const res = await resp.json();
+                if (!resp.ok || !res.success) {
+                    throw new Error(res.error || 'Failed to save buyer');
+                }
+
+                const savedBuyer = res.buyer;
+                const idx = buyerProfiles.findIndex(b => b.profile_id === savedBuyer.profile_id);
+                if (idx >= 0) {
+                    buyerProfiles[idx] = savedBuyer;
+                } else {
+                    buyerProfiles.push(savedBuyer);
+                }
+
+                selectBuyer(savedBuyer.profile_id);
+                closeEditBuyerModal();
+
+            } catch (err) {
+                alert('Error saving buyer: ' + err.message);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                }
+            }
+        }
+
+        function getCurrentFormState() {
+            const items = [];
+            const rows = document.querySelectorAll('#items_container tr.item-row');
+            rows.forEach((r, idx) => {
+                const desc = r.querySelector('input[name="item_description[]"]')?.value || '';
+                const bags = r.querySelector('input[name="item_bags[]"]')?.value || '';
+                const unit = r.querySelector('select[name="item_unit[]"]')?.value || 'Bags';
+                const weight = parseFloat(r.querySelector('input[name="item_quantity[]"]')?.value) || 0;
+                const rate = parseFloat(r.querySelector('input[name="item_rate[]"]')?.value) || 0;
+                const hsn = r.querySelector('input[name="item_hsn[]"]')?.value || '76151030';
+                items.push({
+                    description: desc,
+                    bags: bags,
+                    unit: unit,
+                    quantity: weight,
+                    rate: rate,
+                    hsn: hsn
+                });
+            });
+
+            return {
+                invoice_number: document.getElementById('invoice_number')?.value || '',
+                invoice_date: document.getElementById('invoice_date')?.value || '',
+                transport_mode: document.getElementById('transport_mode_input')?.value || '',
+                dispatch_from: document.getElementById('dispatch_from')?.value || '',
+                ewaybill_number: document.getElementById('ewaybill_number')?.value || '',
+                ewaybill_date: document.getElementById('ewaybill_date')?.value || '',
+                buyer_profile_id: document.getElementById('buyer_profile_id')?.value || '',
+                buyer_name: document.getElementById('buyer_card_name')?.textContent || '',
+                buyer_details: (document.getElementById('buyer_card_address')?.textContent || '').split('\n').map(s => s.trim()).filter(Boolean),
+                gstin: document.getElementById('buyer_card_gstin')?.textContent || '',
+                tax_type: currentTaxType,
+                delivery_charge: parseFloat(document.getElementById('delivery_charge')?.value) || 0,
+                items: items,
+                ship_to: document.getElementById('ship_to')?.value || ''
+            };
         }
 
         // ================= TAX SELECTION =================
@@ -3764,7 +4073,7 @@
             }
         }
 
-        function resizeImage(file, maxDimension = 1500, quality = 0.85) {
+        function resizeImage(file, maxDimension = 1024, quality = 0.72) {
             return new Promise((resolve) => {
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -3813,6 +4122,15 @@
             uploadedAiImages = [];
             renderAiThumbnails();
 
+            // Cache uploaded images in session so follow-up edits and 'try again' preserve them
+            if (imagesToSend.length > 0) {
+                imagesToSend.forEach(img => {
+                    if (!aiSessionImages.some(sim => sim.data === img.data)) {
+                        aiSessionImages.push(img);
+                    }
+                });
+            }
+
             if (promptEl) {
                 promptEl.value = '';
                 promptEl.placeholder = "Type message or speak details...";
@@ -3853,21 +4171,64 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         images: imagesToSend,
+                        session_images: aiSessionImages,
                         prompt: userText,
                         history: aiConversationHistory,
-                        current_draft: lastExtractedAiData
+                        current_draft: lastExtractedAiData,
+                        current_invoices: lastExtractedInvoices,
+                        current_form: getCurrentFormState()
                     })
                 });
 
-                const res = await response.json();
+                let res;
+                const contentType = response.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    res = await response.json();
+                } else {
+                    const textErr = await response.text();
+                    throw new Error(response.status >= 500 ? 'Server busy or rate-limited. Please retry in a few moments.' : (textErr.slice(0, 120) || 'Server returned an unexpected response.'));
+                }
                 if (!response.ok || !res.success) {
                     throw new Error(res.error || 'Failed to process request');
                 }
 
-                lastExtractedAiData = res.data;
-                lastExtractedInvoices = (res.invoices && res.invoices.length > 0) ? res.invoices : (res.data ? [res.data] : []);
+                // If agent saved or updated any buyers via tools, sync to local state
+                if (res.saved_buyers && Array.isArray(res.saved_buyers)) {
+                    res.saved_buyers.forEach(sb => {
+                        const bIdx = buyerProfiles.findIndex(bp => bp.profile_id === sb.profile_id);
+                        if (bIdx >= 0) {
+                            buyerProfiles[bIdx] = sb;
+                        } else {
+                            buyerProfiles.push(sb);
+                        }
+                        const curId = document.getElementById('buyer_profile_id')?.value;
+                        if (curId === sb.profile_id) {
+                            selectBuyer(sb.profile_id);
+                        }
+                    });
+                }
+
+                if (res.invoices && res.invoices.length > 0) {
+                    lastExtractedInvoices = res.invoices;
+                    window.lastExtractedInvoices = res.invoices;
+                    lastExtractedAiData = res.invoices[0];
+                    window.lastExtractedAiData = res.invoices[0];
+                } else if (res.data) {
+                    lastExtractedAiData = res.data;
+                    window.lastExtractedAiData = res.data;
+                    lastExtractedInvoices = [res.data];
+                    window.lastExtractedInvoices = [res.data];
+                }
+
                 aiConversationHistory.push({ role: 'user', text: userText });
-                aiConversationHistory.push({ role: 'model', text: res.conversational_message });
+                aiConversationHistory.push({
+                    role: 'model',
+                    text: res.raw_response || JSON.stringify({
+                        conversational_message: res.conversational_message,
+                        invoices: res.invoices || [],
+                        tools_called: res.tools_called || []
+                    })
+                });
 
                 renderAiAssistantThread(res);
 
@@ -3943,7 +4304,9 @@
             });
 
             lastExtractedInvoices = validInvoices;
+            window.lastExtractedInvoices = validInvoices;
             lastExtractedAiData = validInvoices.length > 0 ? validInvoices[0] : null;
+            window.lastExtractedAiData = lastExtractedAiData;
 
             const bubble = document.createElement('div');
             bubble.className = 'ai-chat-bubble ai-bubble-assistant';
@@ -4116,11 +4479,18 @@
                 }
             }
             if (!buyerFound && d.buyer_name) {
+                const rawG = (d.buyer_gstin || d.gstin || '').trim();
+                const rawA = (d.aadhaar || '').trim();
+                const isAadhaar = rawA || /(?:aadhar|aadhaar)/i.test(rawG) || (rawG.replace(/\D/g, '').length === 12);
+                const cleanAadhaar = isAadhaar ? (rawA || rawG.replace(/aadha?ar[\s\-_:]*/gi, '').trim()) : '';
+                const cleanGstin = isAadhaar ? '' : rawG;
+
                 const adhoc = {
                     profile_id: 'adhoc_' + Date.now(),
                     buyer_name: d.buyer_name.trim(),
                     buyer_details: d.buyer_details || [d.buyer_name.trim()],
-                    gstin: d.buyer_gstin || d.gstin || '',
+                    gstin: cleanGstin,
+                    aadhaar: cleanAadhaar,
                     state: d.buyer_state || d.state || 'West Bengal',
                     state_code: d.buyer_state_code || d.state_code || '19',
                     default_tax_type: d.tax_type || 'IGST'
@@ -4443,10 +4813,10 @@
 
             let list = [...recentInvoices];
 
-            // Deduplicate by invoice_number
+            // Deduplicate only true duplicates (by filename or unique bill signature), NOT by invoice_number alone
             const seen = new Set();
             list = list.filter(inv => {
-                const k = (inv.invoice_number || '').trim();
+                const k = (inv.filename || `${inv.invoice_number || ''}_${inv.buyer_name || ''}_${inv.invoice_date || ''}_${inv.total_amount || ''}`).trim().toLowerCase();
                 if (!k || seen.has(k)) return false;
                 seen.add(k);
                 return true;
@@ -4483,9 +4853,11 @@
             if (tbody) {
                 tbody.innerHTML = list.map(inv => {
                     const total = parseFloat(inv.total_amount) || 0;
-                    const safeNum = encodeURIComponent(inv.invoice_number || '');
-                    const xlsxUrl = `/download_xlsx/${safeNum}`;
-                    const pdfUrl = `/download_pdf/${safeNum}`;
+                    const fileTarget = inv.filename ? encodeURIComponent(inv.filename) : encodeURIComponent(inv.invoice_number || '');
+                    const pdfTarget = inv.pdf_filename ? encodeURIComponent(inv.pdf_filename) : (inv.filename ? encodeURIComponent(inv.filename.replace('.xlsx', '.pdf')) : fileTarget);
+                    const xlsxUrl = `/download_xlsx/${fileTarget}`;
+                    const pdfUrl = `/download_pdf/${pdfTarget}`;
+                    const editParam = inv.filename ? escapeHtml(inv.filename) : escapeHtml(inv.invoice_number || '');
 
                     return `
                         <tr>
@@ -4497,7 +4869,7 @@
                             <td style="text-align: center; white-space: nowrap;">
                                 <a href="${pdfUrl}" class="btn-inline-pill" style="text-decoration:none;" title="Download PDF">PDF</a>
                                 <a href="${xlsxUrl}" class="btn-inline-pill" style="text-decoration:none;" title="Download Excel">Excel</a>
-                                <button type="button" class="btn-inline-pill" onclick="loadPastInvoice('${escapeHtml(inv.invoice_number)}')">Edit</button>
+                                <button type="button" class="btn-inline-pill" onclick="loadPastInvoice('${editParam}')">Edit</button>
                             </td>
                         </tr>
                     `;
@@ -4508,9 +4880,11 @@
             if (cardsContainer) {
                 cardsContainer.innerHTML = list.map(inv => {
                     const total = parseFloat(inv.total_amount) || 0;
-                    const safeNum = encodeURIComponent(inv.invoice_number || '');
-                    const xlsxUrl = `/download_xlsx/${safeNum}`;
-                    const pdfUrl = `/download_pdf/${safeNum}`;
+                    const fileTarget = inv.filename ? encodeURIComponent(inv.filename) : encodeURIComponent(inv.invoice_number || '');
+                    const pdfTarget = inv.pdf_filename ? encodeURIComponent(inv.pdf_filename) : (inv.filename ? encodeURIComponent(inv.filename.replace('.xlsx', '.pdf')) : fileTarget);
+                    const xlsxUrl = `/download_xlsx/${fileTarget}`;
+                    const pdfUrl = `/download_pdf/${pdfTarget}`;
+                    const editParam = inv.filename ? escapeHtml(inv.filename) : escapeHtml(inv.invoice_number || '');
 
                     return `
                         <div class="invoice-mobile-card">
@@ -4526,7 +4900,7 @@
                             <div class="invoice-card-actions">
                                 <a href="${pdfUrl}" class="btn-card-action btn-card-pdf">📄 PDF</a>
                                 <a href="${xlsxUrl}" class="btn-card-action btn-card-excel">📊 Excel</a>
-                                <button type="button" class="btn-card-action btn-card-edit" onclick="loadPastInvoice('${escapeHtml(inv.invoice_number)}')">✏️ Edit & Load</button>
+                                <button type="button" class="btn-card-action btn-card-edit" onclick="loadPastInvoice('${editParam}')">✏️ Edit & Load</button>
                             </div>
                         </div>
                     `;
@@ -4534,9 +4908,17 @@
             }
         }
 
-        async function loadPastInvoice(invNum) {
+        async function loadPastInvoice(target) {
             try {
-                const resp = await fetch(`/api/invoice/${encodeURIComponent(invNum)}`);
+                let url = `/api/invoice/${encodeURIComponent(target)}`;
+                if (target && target.endsWith('.xlsx')) {
+                    url = `/api/invoice-file/${encodeURIComponent(target)}`;
+                }
+                let resp = await fetch(url);
+                if (!resp.ok && target && target.endsWith('.xlsx')) {
+                    // Fallback to /api/invoice/<target>
+                    resp = await fetch(`/api/invoice/${encodeURIComponent(target)}`);
+                }
                 if (!resp.ok) {
                     const errObj = await resp.json().catch(() => ({}));
                     throw new Error(errObj.error || `Server responded with ${resp.status}`);
@@ -4551,7 +4933,7 @@
                     }
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 } else {
-                    alert(`Could not extract data for invoice ${invNum}`);
+                    alert(`Could not extract data for invoice ${target}`);
                 }
             } catch (err) {
                 console.error('Failed to load past invoice:', err);
@@ -4615,7 +4997,7 @@
                 document.getElementById('buyer_profile_search').value = inv.buyer_name;
                 document.getElementById('buyer_selected_card').style.display = 'block';
                 document.getElementById('buyer_card_name').textContent = inv.buyer_name;
-                document.getElementById('buyer_card_gstin').textContent = inv.buyer_gstin ? `GSTIN: ${inv.buyer_gstin}` : 'No GSTIN';
+                updateBuyerCardBadges(inv);
                 document.getElementById('buyer_card_state').textContent = `State: ${inv.buyer_state || 'N/A'} (${inv.buyer_state_code || ''})`;
                 const isWB = String(inv.buyer_state_code || '').trim() === '19';
                 document.getElementById('buyer_card_tax_rec').textContent = isWB ? 'Intra-State: CGST+SGST' : 'Inter-State: IGST 12%';

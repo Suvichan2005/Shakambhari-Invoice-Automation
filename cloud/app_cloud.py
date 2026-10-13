@@ -11,6 +11,7 @@ import os
 import io
 import re
 import json
+import base64
 import tempfile
 import time
 import shutil
@@ -994,12 +995,13 @@ def normalize_transport_mode(mode: str) -> str:
 
 
 def clean_address_lines(lines: Any) -> List[str]:
-    """Strip redundant leading 'Buyer:' or 'Ship To:' header lines from address lists and strip phones/emails."""
+    """Strip redundant leading 'Buyer:' or 'Ship To:' header lines from address lists, phones/emails, and duplicate state labels."""
     if not lines:
         return []
     if isinstance(lines, str):
         lines = [line.strip() for line in re.split(r'[\r\n]+', lines) if line.strip()]
     cleaned = []
+    has_canonical_state_code = any(re.search(r'(?i)\bstate\s*[-:]?\s*[A-Za-z\s]+[-:]?\s*code\s*[-:]?\s*\d{1,2}\b', str(l)) for l in lines)
     for line in lines:
         s = str(line).strip()
         if not s:
@@ -1008,8 +1010,16 @@ def clean_address_lines(lines: Any) -> List[str]:
             continue
         s = re.sub(r'^(buyer|ship\s*to)\s*:\s*', '', s, flags=re.IGNORECASE).strip()
         s = clean_line_phone_email(s)
-        if s:
-            cleaned.append(s)
+        if not s:
+            continue
+        # Drop redundant standalone "State: <State>" or "State - <State>" lines when canonical state line exists or address line already contains the state
+        if re.fullmatch(r'(?i)^\s*state\s*[:\-]\s*[A-Za-z\s]+$', s):
+            if has_canonical_state_code:
+                continue
+            s_val = re.sub(r'(?i)^\s*state\s*[:\-]\s*', '', s).strip()
+            if any(s_val.lower() in str(other).lower() for other in lines if other != line):
+                continue
+        cleaned.append(s)
     return cleaned
 
 
@@ -1098,6 +1108,15 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
     sheet.page_margins.top = 0.4
     sheet.page_margins.bottom = 0.4
 
+    # --- SELLER DETAILS (ALWAYS SHAKAMBHARI ENTERPRISES) ---
+    sheet['A4'] = "SELLER :"
+    sheet['F4'] = "SHIP FROM:"
+    sheet['A5'] = "M/S Shakambhari Enterprises."
+    sheet['A6'] = "5th Floor, Flat 26B, Om Bhawan"
+    sheet['A7'] = "54/5A, Strand Road, Jorabagan"
+    sheet['A8'] = "Kolkata -700006, WB (19)"
+    sheet['A9'] = "G.S.T No : 19ACZPN5725A1Z8"
+
     # --- INVOICE DETAILS ---
     sheet['A2'] = f"INVOICE No. {invoice_data.get('invoice_number', '')}"
     sheet['F2'] = f"Date : {invoice_data.get('invoice_date_display', '')}"
@@ -1147,18 +1166,35 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
     # --- ITEMS ---
     items = invoice_data.get('items', [])
     first_item_row = 22
-    
+    thin_side = Side(border_style='thin', color='000000')
+
+    # Reset all item rows (22 to 31) with clean borders (no horizontal dividers cutting empty rows)
+    border_first_item = {
+        'A': Border(top=thin_side, left=thin_side),
+        'F': Border(top=thin_side, left=thin_side, right=thin_side),
+        'G': Border(top=thin_side, left=thin_side, right=thin_side),
+        'H': Border(top=thin_side, left=thin_side, right=thin_side),
+        'I': Border(top=thin_side, left=thin_side, right=thin_side),
+    }
+    border_other_item = {
+        'A': Border(left=thin_side),
+        'F': Border(left=thin_side, right=thin_side),
+        'G': Border(left=thin_side, right=thin_side),
+        'H': Border(left=thin_side, right=thin_side),
+        'I': Border(left=thin_side, right=thin_side),
+    }
+
     for row_idx in range(22, 32):
         sheet[f'A{row_idx}'] = ''
         sheet[f'F{row_idx}'] = ''
         sheet[f'G{row_idx}'] = ''
         sheet[f'H{row_idx}'] = ''
         sheet[f'I{row_idx}'] = ''
+        b_map = border_first_item if row_idx == 22 else border_other_item
         for col_letter in ['A', 'F', 'G', 'H', 'I']:
-            ref_cell = sheet[f'{col_letter}22']
-            target_cell = sheet[f'{col_letter}{row_idx}']
-            if row_idx > 22 and ref_cell.border:
-                target_cell.border = copy(ref_cell.border)
+            sheet[f'{col_letter}{row_idx}'].border = b_map[col_letter]
+        for col_letter in ['B', 'C', 'D', 'E']:
+            sheet[f'{col_letter}{row_idx}'].border = Border(top=thin_side if row_idx == 22 else None)
 
     item_rows = []
     template_hsn = sheet['H22'].value or '76151030'
@@ -1214,10 +1250,25 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
         qty_formula = '=0'
         
     sheet['F32'] = qty_formula
+    sheet['F32'].alignment = Alignment(horizontal='center', vertical='center')
+    sheet['F32'].font = Font(name=base_font_name, size=base_font_size, bold=False)
+    sheet['F32'].number_format = '0.000'
+
     sheet['I32'] = subtotal_formula
+    sheet['I32'].alignment = Alignment(horizontal='right', vertical='center')
+    sheet['I32'].font = Font(name=base_font_name, size=base_font_size, bold=False)
+    sheet['I32'].number_format = '0.00'
+
+    # Closing border on subtotal row 32
+    for col_c in ['F', 'G', 'H', 'I']:
+        sheet[f'{col_c}32'].border = Border(top=thin_side, bottom=thin_side, left=thin_side, right=thin_side)
     
     delivery_charge = max(0.0, safe_float(invoice_data.get('delivery_charge', 0), 0.0))
+    sheet['C33'] = 'Delivery Charge'
+    sheet['C33'].alignment = Alignment(horizontal='left', vertical='center')
     sheet['I33'] = delivery_charge
+    sheet['I33'].alignment = Alignment(horizontal='right', vertical='center')
+    sheet['I33'].number_format = '0.00'
 
     tax_type = invoice_data.get('tax_type', 'IGST')
     tax_scheme = _resolve_tax_scheme(
@@ -1231,40 +1282,57 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
     
     if tax_scheme['display_type'] == 'IGST':
         sheet['C34'] = 'G.S.T SALES I.G.S.T @'
+        sheet['C34'].alignment = Alignment(horizontal='left', vertical='center')
         sheet['E34'] = f"{tax_scheme['igst_rate']:.2f}%"
+        sheet['E34'].alignment = Alignment(horizontal='right', vertical='center')
         sheet['I34'] = f'=ROUND({tax_base_formula}*{tax_scheme["igst_rate"]}/100, 2)'
-        sheet['C35'] = 'G.S.T SALES C.G.S.T @'
-        sheet['E35'] = '0.00%'
-        sheet['I35'] = 0.0
+        sheet['I34'].alignment = Alignment(horizontal='right', vertical='center')
+        sheet['I34'].number_format = '0.00'
+        # Clear Row 35 completely to eliminate overlapping text artifacts in LibreOffice
+        sheet['C35'] = ''
+        sheet['E35'] = ''
+        sheet['I35'] = ''
     else:
         sheet['C34'] = 'G.S.T SALES C.G.S.T @'
+        sheet['C34'].alignment = Alignment(horizontal='left', vertical='center')
         sheet['E34'] = f"{tax_scheme['cgst_rate']:.2f}%"
+        sheet['E34'].alignment = Alignment(horizontal='right', vertical='center')
         sheet['I34'] = f'=ROUND({tax_base_formula}*{tax_scheme["cgst_rate"]}/100, 2)'
+        sheet['I34'].alignment = Alignment(horizontal='right', vertical='center')
+        sheet['I34'].number_format = '0.00'
         sheet['C35'] = 'G.S.T SALES S.G.S.T @'
+        sheet['C35'].alignment = Alignment(horizontal='left', vertical='center')
         sheet['E35'] = f"{tax_scheme['sgst_rate']:.2f}%"
+        sheet['E35'].alignment = Alignment(horizontal='right', vertical='center')
         sheet['I35'] = f'=ROUND({tax_base_formula}*{tax_scheme["sgst_rate"]}/100, 2)'
+        sheet['I35'].alignment = Alignment(horizontal='right', vertical='center')
+        sheet['I35'].number_format = '0.00'
 
-    sheet['I41'] = '=I32+I33+I34+I35'
+    # Calculation and round off
+    sheet['I41'] = '=SUM(I32:I35)'
     sheet['I37'] = '=ROUND(I41,0)-I41'
+    sheet['I37'].alignment = Alignment(horizontal='right', vertical='center')
+    sheet['I37'].number_format = '0.00'
+
     sheet['I38'] = '=ROUND(I41,0)'
+    sheet['I38'].alignment = Alignment(horizontal='right', vertical='center')
+    sheet['I38'].number_format = '0.00'
+    sheet['I38'].font = Font(name=base_font_name, size=base_font_size, bold=True)
     
-    # --- ROW VISIBILITY ---
-    subtotal = sum(safe_float(item.get('quantity', 0), 0.0) * safe_float(item.get('rate', 0), 0.0) for item in items)
-    tax_base_value = subtotal + delivery_charge
-    
-    if tax_scheme['display_type'] == 'IGST':
-        igst_value = tax_base_value * (tax_scheme['igst_rate'] / 100.0)
-        sheet.row_dimensions[34].hidden = igst_value <= 0
-        sheet.row_dimensions[35].hidden = True
-    else:
-        cgst_value = tax_base_value * (tax_scheme['cgst_rate'] / 100.0)
-        sgst_value = tax_base_value * (tax_scheme['sgst_rate'] / 100.0)
-        sheet.row_dimensions[34].hidden = cgst_value <= 0
-        sheet.row_dimensions[35].hidden = sgst_value <= 0
-        
-    sheet.row_dimensions[33].hidden = delivery_charge <= 0
+    # Ensure all tax and calculation rows remain visible with fixed spacing
+    sheet.row_dimensions[33].hidden = False
+    sheet.row_dimensions[34].hidden = False
+    sheet.row_dimensions[35].hidden = False
+    sheet.row_dimensions[36].hidden = False
+    sheet.row_dimensions[37].hidden = False
+    sheet.row_dimensions[38].hidden = False
+    sheet.row_dimensions[41].hidden = True
+    sheet.row_dimensions[41].height = 0.6
     
     # --- AMOUNT IN WORDS ---
+    subtotal = sum(safe_float(item.get('quantity', 0), 0.0) * safe_float(item.get('rate', 0), 0.0) for item in items)
+    tax_base_value = subtotal + delivery_charge
+
     if tax_scheme['display_type'] == 'IGST':
         tax_amount = tax_base_value * (tax_scheme['igst_rate'] / 100.0)
     else:
@@ -1280,9 +1348,15 @@ def generate_invoice_excel(invoice_data: Dict) -> bytes:
         amount_words = 'AMOUNT : Zero Only'
     sheet['A40'] = amount_words
     
-    # Authorised Signatory explicitly maintained under signature image
-    app_cfg = get_settings(get_cloud_storage())
-    sheet['G48'] = app_cfg.get('signatory_title', 'Authorised Signatory')
+    # --- BANK & SIGNATORY DETAILS (ALWAYS SHAKAMBHARI ENTERPRISES) ---
+    sheet['A42'] = "Bank Details:"
+    sheet['A43'] = "ICICI Bank"
+    sheet['A44'] = "Salt lake Sector 2 Branch"
+    sheet['A45'] = "A/C No.: 004205008313 "
+    sheet['A46'] = "IFSC No.: ICIC0000042 "
+    sheet['G45'] = "For Shakambhari Enterprises"
+    sheet['G48'] = "Authorised Signatory"
+    sheet['A50'] = "Subject to Kolkata Jurisdiction."
 
     # Add layout marker
     sheet['Z1'] = 'v2'
@@ -2178,18 +2252,28 @@ def api_get_invoices():
     except Exception as exc:
         app.logger.warning("Could not list storage invoices: %s", exc)
 
-    # Deduplicate invoices by invoice_number
+    # Deduplicate invoices by unique file or distinct bill signature so multiple bills sharing
+    # the same sequential number (e.g. 61/2026-27) are preserved individually in the past records list.
     deduped = {}
     for inv in recent_invoices:
         inv_num = str(inv.get('invoice_number', '')).strip()
         if not inv_num:
             continue
-        if inv_num not in deduped:
-            deduped[inv_num] = inv
+        fn = str(inv.get('filename') or '').strip().lower()
+        if fn:
+            unique_key = fn
         else:
-            prev = deduped[inv_num]
-            if (inv.get('sort_ts') or 0) > (prev.get('sort_ts') or 0) or (inv.get('total_amount') and not prev.get('total_amount')):
-                deduped[inv_num] = inv
+            b_name = str(inv.get('buyer_name') or '').strip().lower()
+            i_date = str(inv.get('invoice_date') or '').strip()
+            i_amt = str(inv.get('total_amount') or '')
+            unique_key = f"{inv_num.lower()}_{b_name}_{i_date}_{i_amt}"
+
+        if unique_key not in deduped:
+            deduped[unique_key] = inv
+        else:
+            prev = deduped[unique_key]
+            if (len(inv.get('items') or []) > len(prev.get('items') or [])) or (inv.get('file_url') and not prev.get('file_url')):
+                deduped[unique_key] = inv
 
     deduped_list = list(deduped.values())
     deduped_list.sort(key=_invoice_sort_key, reverse=True)
@@ -2199,11 +2283,15 @@ def api_get_invoices():
 @app.route('/api/invoice/<path:invoice_number>')
 def api_get_invoice(invoice_number):
     """API endpoint to get invoice data for loading."""
+    target_clean = (invoice_number or '').strip()
+    if target_clean.lower().endswith('.xlsx'):
+        return api_get_invoice_by_file(target_clean)
+
     db = get_sheets_db_or_none()
     invoice = None
     if db is not None:
         try:
-            invoice = db.get_invoice(invoice_number)
+            invoice = db.get_invoice(target_clean)
         except Exception as exc:
             app.logger.warning("Could not fetch invoice from Sheets: %s", exc)
 
@@ -2280,6 +2368,32 @@ def api_settings():
     return jsonify({'success': True, 'settings': sanitize_settings_for_client(get_settings(storage))})
 
 
+def compress_image_b64(raw_b64: str, max_dimension: int = 1024, quality: int = 72) -> Tuple[str, str]:
+    """Ensure base64 image data does not overload Gemini API while preserving crisp legibility for OCR."""
+    try:
+        from PIL import Image
+        img_bytes = base64.b64decode(raw_b64)
+        with Image.open(io.BytesIO(img_bytes)) as im:
+            if im.mode in ('RGBA', 'P', 'LA'):
+                im = im.convert('RGB')
+            w, h = im.size
+            if w > max_dimension or h > max_dimension:
+                if w > h:
+                    h = max(1, int(h * max_dimension / w))
+                    w = max_dimension
+                else:
+                    w = max(1, int(w * max_dimension / h))
+                    h = max_dimension
+                im = im.resize((w, h), Image.Resampling.LANCZOS)
+            out_buf = io.BytesIO()
+            im.save(out_buf, format='JPEG', quality=quality, optimize=True)
+            new_b64 = base64.b64encode(out_buf.getvalue()).decode('utf-8')
+            return new_b64, 'image/jpeg'
+    except Exception as e:
+        app.logger.warning("Could not server-side compress image: %s", e)
+        return raw_b64, 'image/jpeg'
+
+
 @app.route('/api/ai/parse-bill', methods=['POST'])
 def api_ai_parse_bill():
     """
@@ -2292,6 +2406,9 @@ def api_ai_parse_bill():
 
     data = request.get_json(silent=True) or {}
     images = data.get('images', [])  # List of {data: base64_str, mime_type: 'image/jpeg'}
+    session_images = data.get('session_images', [])
+    if not images and session_images:
+        images = session_images
     prompt_text = data.get('prompt', '').strip()
     create_buyer_if_new = data.get('create_new_buyer', True)
 
@@ -2357,22 +2474,28 @@ def api_ai_parse_bill():
 
     history = data.get('history', [])  # Multi-turn conversation history
     current_draft = data.get('current_draft') or {}
+    current_invoices = data.get('current_invoices') or []
+    current_form = data.get('current_form') or {}
 
-    parts = []
-
-    # Add images
+    processed_images = []
     for img in images:
         raw_b64 = img.get('data', '')
         if ',' in raw_b64:
             raw_b64 = raw_b64.split(',', 1)[1]
         mtype = img.get('mime_type', 'image/jpeg')
         if raw_b64:
-            parts.append({
-                'inline_data': {
-                    'mime_type': mtype,
-                    'data': raw_b64
-                }
-            })
+            comp_b64, comp_mtype = compress_image_b64(raw_b64, max_dimension=1024, quality=72)
+            processed_images.append({'mime_type': comp_mtype, 'data': comp_b64})
+
+    processed_session_images = []
+    for simg in session_images:
+        raw_b64 = simg.get('data', '')
+        if ',' in raw_b64:
+            raw_b64 = raw_b64.split(',', 1)[1]
+        mtype = simg.get('mime_type', 'image/jpeg')
+        if raw_b64:
+            comp_b64, comp_mtype = compress_image_b64(raw_b64, max_dimension=1024, quality=72)
+            processed_session_images.append({'mime_type': comp_mtype, 'data': comp_b64})
 
     company_name = current_settings.get('company_name', 'Shakambhari Enterprises')
     buyers_summary = [
@@ -2381,8 +2504,8 @@ def api_ai_parse_bill():
     ]
 
     instruction = (
-        f"You are the billing assistant for {company_name}, an aluminium utensils manufacturing and trading business in Liluah/Howrah, West Bengal.\n"
-        "Your task is to accurately read rough paper chits, handwritten slips, weight slips, visiting cards, or spoken text and extract complete invoice data.\n\n"
+        f"You are the senior billing assistant and dispatch agent for {company_name}, an aluminium utensils manufacturing and trading business in Liluah/Howrah, West Bengal.\n"
+        "You operate agentically: you read rough paper slips/chits, extract invoices, update or edit buyers, modify active bill fields upon user request, and maintain conversational context across multiple turns.\n\n"
         "=== DATABASE GROUNDING (YOUR KNOWLEDGE BASE) ===\n"
         f"1. KNOWN BUYERS IN DATABASE ({len(known_buyers)} profiles):\n"
         f"{json.dumps(buyers_summary, ensure_ascii=False, indent=1)}\n\n"
@@ -2393,46 +2516,28 @@ def api_ai_parse_bill():
         f"4. RECENT INVOICE NUMBERS ALREADY USED IN DATABASE:\n"
         f"{json.dumps(existing_invoices_sample[:80], ensure_ascii=False)}\n\n"
         f"5. SUGGESTED NEXT SEQUENTIAL INVOICE NUMBER: {suggested_inv}\n\n"
-        "=== CRITICAL INSTRUCTIONS ===\n"
-        "1. IRRELEVANT IMAGES / NON-BILLS:\n"
-        "   - If the uploaded photo or note is NOT a sales bill, order chit, weight slip, or party document (for example: study notes, homework, random text, non-business photos):\n"
-        "     * You MUST set 'invoices': [] and 'data': null.\n"
-        "     * Set 'has_clarifications': false, 'clarifications': [].\n"
-        "     * In 'conversational_message', clearly and politely state that no sales details or party items were found, explain what was seen, and kindly ask for a handwritten slip or order chit.\n\n"
-        "2. TONE AND EXPLANATION (NO TECHNICAL JARGON):\n"
-        "   - Use clear, respectful everyday English as if speaking to an experienced 55-year-old business owner.\n"
-        "   - NEVER use technical jargon like 'multimodal', 'payload', 'grounding', 'override', 'JSON schema', or 'regex'.\n"
-        "   - Clearly state which bills were found, party names, bag counts, weights in kg, and rates.\n\n"
-        "2. MULTIPLE BILLS ON A SINGLE CHIT OR NOTE:\n"
-        "   - A single paper chit or voice note often contains 2 or 3 separate bills for different buyers (e.g., 'Das Metal 2 bags 84 kg @ 380' and 'Rishab Metal 1 bag 42 kg @ 385').\n"
-        "   - When multiple bills or parties appear, extract EACH bill as an element in the 'invoices' array.\n"
-        "   - For invoice numbering: start with the suggested next invoice number and increment sequentially for each subsequent bill (e.g., if suggested is 057, Bill 1 is 057, Bill 2 is 058).\n"
-        "   - If only 1 bill is present, still include it in 'invoices': [ ... ] and also populate 'data'.\n\n"
-        "3. TOLERANT BUYER MATCHING & VISITING CARD NORMALIZATION:\n"
-        "   - Search KNOWN BUYERS carefully. Match flexibly even with minor differences or abbreviations (e.g., 'Das metal' matches 'Das Metal', 'Anand Metal' matches 'ANAND METAL WORKS').\n"
-        "   - If matched, set 'matched_profile_id' to that ID, 'buyer_name' to the official name, and 'is_new_buyer': false.\n"
-        "   - If it is genuinely a new party, visiting card, or rough slip:\n"
-        "     * Set 'is_new_buyer': true, 'matched_profile_id': null.\n"
-        "     * ADDRESS CLEANING: Strip all phone numbers, mobile numbers, landlines, and email addresses from 'buyer_details' (e.g., no 'Ph:', 'Mob:', '+91...', 'Email:').\n"
-        "     * PIN CODES: Always preserve 6-digit Indian postal PIN codes (e.g. 711315, 781001).\n"
-        "     * STATE CODE: Always include the mandatory state code line in format: 'STATE- <STATE_NAME> CODE-<STATE_CODE>' (e.g., 'STATE- WEST BENGAL CODE-19', 'STATE- ASSAM CODE-18', 'STATE- BIHAR CODE-10', 'STATE- TRIPURA CODE-16', 'STATE- JHARKHAND CODE-20'). Infer from GSTIN first 2 digits or city/region.\n"
-        "     * CANONICAL LINE ORDER in 'buyer_details':\n"
-        "       Line 1: 'Buyer :'\n"
-        "       Line 2: '<Buyer Name>'\n"
-        "       Lines 3..k: Clean address lines (premises, street, city, PIN code)\n"
-        "       Next to last: 'STATE- <STATE_NAME> CODE-<STATE_CODE>'\n"
-        "       Last: 'GSTIN - <GSTIN>' (if registered)\n\n"
-        "4. GOODS, PACKAGING & TAXATION:\n"
-        "   - Default description: 'Aluminium Utensils'.\n"
-        "   - Packaging unit: default 'Bags', but if 'bundle', 'bundles', 'box', 'boxes', 'carton' or 'pieces' is noted, set 'unit' accordingly (e.g., 'Bundles', 'Boxes', 'Pieces').\n"
-        "   - Default HSN: '76151030'.\n"
-        "   - Tax type: 'IGST' if buyer is outside West Bengal (State Code != 19) or unknown; 'CGST_SGST' if buyer is within West Bengal (State Code 19).\n"
-        f"   - Default invoice date: '{get_ist_today_str()}'.\n\n"
-        "5. DUPLICATE INVOICE CHECK:\n"
-        "   - If an invoice number already exists in RECENT INVOICE NUMBERS, set 'is_duplicate_invoice': true and ask a clarification question.\n\n"
-        "OUTPUT STRICT JSON ONLY (NO CODE BLOCKS OR MARKDOWN):\n"
+        "=== AGENTIC TOOLS AVAILABLE TO YOU ===\n"
+        "1. `save_or_update_buyer`:\n"
+        "   Use this tool when the user asks to edit an existing buyer's details (address, GSTIN, Aadhaar, state, name) OR save a new buyer profile into the database.\n"
+        "   Args: {\"profile_id\": \"<existing ID or null>\", \"buyer_name\": \"...\", \"buyer_details\": [\"...\"], \"gstin\": \"...\", \"aadhaar\": \"...\", \"state\": \"...\", \"state_code\": \"...\", \"default_tax_type\": \"IGST\" or \"CGST_SGST\"}\n\n"
+        "2. `edit_invoice_bill`:\n"
+        "   Use this tool when the user asks to modify an active bill or field (e.g. rate, bags, weight, transport, date, buyer, delivery charge, item description).\n"
+        "   Args: {\"bill_index\": 0, \"fields_to_update\": { ... }}\n\n"
+        "=== AGENT INSTRUCTIONS & RULES ===\n"
+        "1. Multi-bill slips: If a single paper chit contains multiple bills for different parties, extract each bill into the 'invoices' array. Sequential invoice numbers should start with suggested number and increment for subsequent bills.\n"
+        "2. Multi-turn conversation: Maintain conversational state across turns. When the user asks to modify, correct, or adjust any field (e.g. rate, bags, transport, buyer), apply the requested change while preserving all other extracted details.\n"
+        "3. Buyer profile editing: If the user asks to update a buyer's address, GSTIN, Aadhaar, or state, invoke `save_or_update_buyer` and update the active bill.\n"
+        "4. Tolerant buyer matching: Match known buyers flexibly. If a party is new or uses Aadhaar, extract person name as buyer_name, omit father/care-of names, store the 12-digit number in 'aadhaar', leave 'gstin' empty '', and format the last line of buyer_details as 'AADHAAR - XXXX XXXX XXXX'.\n"
+        "5. Packaging units & items: Default unit to 'Bags'. Default HSN to '76151030'. Ensure quantities, rates, and amounts are numeric.\n"
+        "6. Strict Output: Always respond with STRICT JSON ONLY matching the schema below (NO markdown code fences, NO extraneous commentary):\n\n"
         "{\n"
-        '  "conversational_message": "Friendly plain English explanation of the bills found...",\n'
+        '  "conversational_message": "Warm, plain Hinglish/English explanation of what was extracted or modified...",\n'
+        '  "tools_called": [\n'
+        '    {\n'
+        '      "name": "save_or_update_buyer" or "edit_invoice_bill",\n'
+        '      "args": { ... }\n'
+        '    }\n'
+        '  ],\n'
         '  "has_clarifications": false,\n'
         '  "clarifications": [],\n'
         '  "is_duplicate_invoice": false,\n'
@@ -2448,6 +2553,7 @@ def api_ai_parse_bill():
         '      "is_new_buyer": false,\n'
         '      "buyer_details": ["Line 1", "Line 2"],\n'
         '      "gstin": "...",\n'
+        '      "aadhaar": "...",\n'
         '      "state": "...",\n'
         '      "state_code": "...",\n'
         '      "transport_mode": "...",\n'
@@ -2470,39 +2576,96 @@ def api_ai_parse_bill():
         "}"
     )
 
-    context_prompt = instruction
-    if current_draft:
-        context_prompt += f"\n\nCURRENT WORKING DRAFT DATA:\n{json.dumps(current_draft, ensure_ascii=False)}"
-    if history:
-        context_prompt += f"\n\nPREVIOUS CONVERSATION HISTORY:\n{json.dumps(history, ensure_ascii=False)}"
+    contents = []
 
-    user_text = prompt_text if prompt_text else "Please examine the provided slip picture(s) and extract all billing details."
-    parts.append({'text': f"{context_prompt}\n\nUSER PROMPT / FOLLOW-UP:\n{user_text}"})
+    # If multi-turn chat history is provided, reconstruct proper alternating conversational turns
+    if history and isinstance(history, list):
+        for h_turn in history:
+            role = h_turn.get('role')
+            if role == 'user':
+                t_parts = []
+                # Ground the first user turn with session images if available
+                if len(contents) == 0 and processed_session_images:
+                    for pimg in processed_session_images:
+                        t_parts.append({
+                            'inline_data': {
+                                'mime_type': pimg['mime_type'],
+                                'data': pimg['data']
+                            }
+                        })
+                t_text = h_turn.get('text', '').strip()
+                if t_text:
+                    t_parts.append({'text': t_text})
+                elif not t_parts:
+                    t_parts.append({'text': 'Slip image uploaded.'})
+                contents.append({'role': 'user', 'parts': t_parts})
+            elif role == 'model':
+                m_text = h_turn.get('text', '').strip()
+                if not m_text and h_turn.get('raw_response'):
+                    m_text = str(h_turn.get('raw_response')).strip()
+                if not m_text:
+                    m_text = json.dumps({'conversational_message': 'Received.'})
+                contents.append({'role': 'model', 'parts': [{'text': m_text}]})
+
+    # Now construct the current user turn
+    current_parts = []
+    # If no history, or if new images were sent in this turn, attach them
+    images_for_current = processed_images if processed_images else ([] if history else processed_session_images)
+    for pimg in images_for_current:
+        current_parts.append({
+            'inline_data': {
+                'mime_type': pimg['mime_type'],
+                'data': pimg['data']
+            }
+        })
+
+    user_text = prompt_text if prompt_text else ("Please examine the provided slip picture(s) and extract all billing details." if not history else "Please update the bill according to my instructions.")
+
+    # Context grounding for current turn (screen state)
+    grounding_notes = []
+    if current_form:
+        grounding_notes.append(f"CURRENT INVOICE FORM VALUES ON SCREEN:\n{json.dumps(current_form, ensure_ascii=False)}")
+    if current_invoices:
+        grounding_notes.append(f"CURRENT WORKING BILLS:\n{json.dumps(current_invoices, ensure_ascii=False)}")
+    elif current_draft:
+        grounding_notes.append(f"CURRENT WORKING DRAFT:\n{json.dumps(current_draft, ensure_ascii=False)}")
+
+    if grounding_notes:
+        full_turn_text = "\n\n".join(grounding_notes) + f"\n\nUSER REQUEST:\n{user_text}"
+    else:
+        full_turn_text = user_text
+
+    current_parts.append({'text': full_turn_text})
+    contents.append({'role': 'user', 'parts': current_parts})
 
     gemini_payload = {
-        "contents": [{"parts": parts}],
+        "systemInstruction": {
+            "parts": [{"text": instruction}]
+        },
+        "contents": contents,
         "generationConfig": {
             "temperature": 0.1,
             "responseMimeType": "application/json"
         }
     }
 
-    # Build resilient model hierarchy using active Gemini 3.x and 2.5 models
-    # Strictly exclude decommissioned models (1.5, 2.0) and high-load aliases (gemini-flash-latest)
+    # Build resilient model hierarchy using active, verified Gemini 3.x models
+    # Strictly exclude decommissioned models (1.5, 2.0, 2.5) and high-load aliases (gemini-flash-latest)
     disallowed_models = {
-        "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-001",
+        "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.5-flash-lite",
+        "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-001",
         "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-flash-8b",
-        "gemini-1.5-pro", "gemini-flash"
+        "gemini-1.5-pro", "gemini-flash", "gemini-pro"
     }
     standard_models_pool = [
         "gemini-3.8-flash",
         "gemini-3.7-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-lite-preview",
         "gemini-3.6-flash",
         "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"
+        "gemini-3.5-flash-lite"
     ]
 
     primary_m = current_settings.get('gemini_primary_model', 'gemini-3.8-flash')
@@ -2524,6 +2687,7 @@ def api_ai_parse_bill():
     last_error = ""
 
     for model in models:
+        text_out = None
         api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         try:
             req = urllib.request.Request(
@@ -2532,161 +2696,208 @@ def api_ai_parse_bill():
                 headers={'Content-Type': 'application/json'},
                 method='POST'
             )
-            with urllib.request.urlopen(req, timeout=20) as resp:
+            with urllib.request.urlopen(req, timeout=18) as resp:
                 res_body = resp.read().decode('utf-8')
                 res_data = json.loads(res_body)
                 candidates = res_data.get('candidates', [])
-                if not candidates:
-                    last_error = f"Model {model} returned no candidates."
-                    continue
-                content = candidates[0].get('content', {})
-                resp_parts = content.get('parts', [])
-                if not resp_parts:
-                    last_error = f"Model {model} returned empty parts."
-                    continue
-                text_out = resp_parts[0].get('text', '').strip()
-                # Clean code fences if present
-                clean_json_str = re.sub(r'^```(?:json)?\s*', '', text_out, flags=re.MULTILINE)
-                clean_json_str = re.sub(r'\s*```$', '', clean_json_str, flags=re.MULTILINE).strip()
-                try:
-                    parsed_response = json.loads(clean_json_str)
-                except Exception:
-                    # Fallback regex extraction of outermost JSON object
-                    m_json = re.search(r'(\{[\s\S]*\})', clean_json_str)
-                    if m_json:
-                        repaired = re.sub(r',\s*([}\]])', r'\1', m_json.group(1))
-                        parsed_response = json.loads(repaired)
-                    else:
-                        raise
-
-                raw_invoices = parsed_response.get('invoices')
-                if raw_invoices is None:
-                    single_val = parsed_response.get('data')
-                    if isinstance(single_val, list):
-                        raw_invoices = single_val
-                    elif isinstance(single_val, dict) and (single_val.get('buyer_name') or single_val.get('items')):
-                        raw_invoices = [single_val]
-                    else:
-                        raw_invoices = []
-                elif not isinstance(raw_invoices, list):
-                    raw_invoices = []
-
-                today_ist = get_ist_today_str()
-                parsed_invoices = []
-
-                for idx, inv in enumerate(raw_invoices):
-                    if not isinstance(inv, dict):
-                        continue
-
-                    b_name = (inv.get('buyer_name') or '').strip()
-                    raw_items = inv.get('items') or []
-                    has_real_buyer = bool(b_name and b_name.lower() not in ('unnamed party', 'unknown', 'none', 'n/a', 'null', ''))
-                    has_real_items = any(
-                        (float(it.get('quantity') or 0) > 0 or float(it.get('rate') or 0) > 0 or (it.get('description') and it.get('description').strip()))
-                        for it in raw_items if isinstance(it, dict)
-                    ) if isinstance(raw_items, list) else False
-
-                    # Skip empty dummy bill if neither a real party nor items exist
-                    if not has_real_buyer and not has_real_items:
-                        continue
-
-                    inv_data = dict(inv)
-                    if not inv_data.get('invoice_date'):
-                        inv_data['invoice_date'] = today_ist
-
-                    # Assign sequential invoice number if missing
-                    if not inv_data.get('invoice_number') and suggested_inv:
-                        inv_data['invoice_number'] = format_sequential_invoice_number(suggested_inv, idx)
-
-                    # Normalize buyer profile info on invoice
-                    if inv_data.get('buyer_name') or inv_data.get('buyer_details'):
-                        temp_p = {
-                            'buyer_name': inv_data.get('buyer_name', ''),
-                            'buyer_details': inv_data.get('buyer_details') or [inv_data.get('buyer_name', '')],
-                            'gstin': inv_data.get('gstin', ''),
-                            'state': inv_data.get('state', ''),
-                            'state_code': inv_data.get('state_code', ''),
-                            'default_tax_type': inv_data.get('tax_type', 'IGST')
-                        }
-                        norm_p = normalize_buyer_profile(temp_p)
-                        inv_data['buyer_details'] = norm_p['buyer_details']
-                        inv_data['gstin'] = norm_p['gstin']
-                        inv_data['state'] = norm_p['state']
-                        inv_data['state_code'] = norm_p['state_code']
-                        inv_data['tax_type'] = norm_p['default_tax_type']
-
-                    # Auto-persist new buyer if requested
-                    if inv_data.get('is_new_buyer') and inv_data.get('buyer_name') and create_buyer_if_new:
-                        b_name = inv_data.get('buyer_name', '').strip()
-                        matched = next((kb for kb in known_buyers if kb.get('buyer_name', '').strip().lower() == b_name.lower()), None)
-                        if matched:
-                            inv_data['is_new_buyer'] = False
-                            inv_data['matched_profile_id'] = matched.get('profile_id')
-                        else:
-                            new_profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
-                            new_profile_raw = {
-                                'profile_id': new_profile_id,
-                                'buyer_name': b_name,
-                                'buyer_details': inv_data.get('buyer_details') or [b_name],
-                                'gstin': inv_data.get('gstin', '').strip().upper(),
-                                'state': inv_data.get('state', ''),
-                                'state_code': inv_data.get('state_code', ''),
-                                'default_tax_type': inv_data.get('tax_type', 'IGST')
-                            }
-                            new_profile = normalize_buyer_profile(new_profile_raw)
-                            try:
-                                db = get_sheets_db_or_none()
-                                if db:
-                                    db.save_buyer(new_profile)
-                                    known_buyers.append(new_profile)
-                            except Exception as err:
-                                app.logger.warning("Could not auto-save new buyer profile: %s", err)
-                            inv_data['matched_profile_id'] = new_profile_id
-                            inv_data['created_profile'] = new_profile
-
-                    # Normalize items: guarantee default description, Bags unit, and numeric types
-                    norm_items = []
-                    raw_items = inv_data.get('items', [])
-                    if isinstance(raw_items, list):
-                        for it in raw_items:
-                            if isinstance(it, dict):
-                                norm_items.append({
-                                    'description': it.get('description') or 'Aluminium Utensils',
-                                    'bags': str(it.get('bags') or ''),
-                                    'unit': it.get('unit') or 'Bags',
-                                    'quantity': float(it.get('quantity') or 0),
-                                    'rate': float(it.get('rate') or 0),
-                                    'hsn': it.get('hsn') or '76151030'
-                                })
-                    inv_data['items'] = norm_items
-                    parsed_invoices.append(inv_data)
-
-                primary_invoice = parsed_invoices[0] if parsed_invoices else None
-
-                return jsonify({
-                    'success': True,
-                    'model': model,
-                    'conversational_message': parsed_response.get('conversational_message', 'Extracted details from slip.'),
-                    'has_clarifications': parsed_response.get('has_clarifications', False),
-                    'clarifications': parsed_response.get('clarifications', []),
-                    'is_duplicate_invoice': parsed_response.get('is_duplicate_invoice', False),
-                    'duplicate_warning': parsed_response.get('duplicate_warning'),
-                    'suggested_next_invoice_number': parsed_response.get('suggested_next_invoice_number', suggested_inv),
-                    'invoices': parsed_invoices,
-                    'data': primary_invoice
-                })
-
+                if candidates:
+                    content = candidates[0].get('content', {})
+                    resp_parts = content.get('parts', [])
+                    if resp_parts:
+                        text_out = resp_parts[0].get('text', '').strip()
+                if not text_out:
+                    last_error = f"Model {model} generateContent returned empty output."
         except urllib.error.HTTPError as he:
             err_msg = he.read().decode('utf-8', errors='ignore')
-            app.logger.warning("Gemini model %s HTTP %s: %s - Failing over to next queue candidate...", model, he.code, err_msg)
-            last_error = f"{model} returned HTTP {he.code}: {err_msg}"
-            if he.code in (503, 429):
-                time.sleep(0.35)
-            continue
+            app.logger.warning("Gemini model %s HTTP %s: %s", model, he.code, err_msg)
+            last_error = f"{model} HTTP {he.code}: {err_msg[:120]}"
+            time.sleep(0.3)
         except Exception as exc:
-            app.logger.warning("Gemini model %s error: %s - Failing over...", model, exc)
+            app.logger.warning("Gemini model %s error: %s", model, exc)
             last_error = f"{model} error: {exc}"
+
+        if not text_out:
             continue
+
+        # Clean code fences if present
+        clean_json_str = re.sub(r'^```(?:json)?\s*', '', text_out, flags=re.MULTILINE)
+        clean_json_str = re.sub(r'\s*```$', '', clean_json_str, flags=re.MULTILINE).strip()
+        try:
+            parsed_response = json.loads(clean_json_str)
+        except Exception:
+            m_json = re.search(r'(\{[\s\S]*\})', clean_json_str)
+            if m_json:
+                repaired = re.sub(r',\s*([}\]])', r'\1', m_json.group(1))
+                try:
+                    parsed_response = json.loads(repaired)
+                except Exception:
+                    last_error = f"Model {model} produced unparseable JSON: {clean_json_str[:120]}"
+                    continue
+            else:
+                last_error = f"Model {model} produced unparseable JSON: {clean_json_str[:120]}"
+                continue
+
+        raw_invoices = parsed_response.get('invoices')
+        if raw_invoices is None:
+            single_val = parsed_response.get('data')
+            if isinstance(single_val, list):
+                raw_invoices = single_val
+            elif isinstance(single_val, dict) and (single_val.get('buyer_name') or single_val.get('items')):
+                raw_invoices = [single_val]
+            else:
+                raw_invoices = []
+        elif not isinstance(raw_invoices, list):
+            raw_invoices = []
+
+        today_ist = get_ist_today_str()
+        parsed_invoices = []
+
+        for idx, inv in enumerate(raw_invoices):
+            if not isinstance(inv, dict):
+                continue
+
+            b_name = (inv.get('buyer_name') or '').strip()
+            raw_items = inv.get('items') or []
+            has_real_buyer = bool(b_name and b_name.lower() not in ('unnamed party', 'unknown', 'none', 'n/a', 'null', ''))
+            has_real_items = any(
+                (float(it.get('quantity') or 0) > 0 or float(it.get('rate') or 0) > 0 or (it.get('description') and it.get('description').strip()))
+                for it in raw_items if isinstance(it, dict)
+            ) if isinstance(raw_items, list) else False
+
+            # Skip empty dummy bill if neither a real party nor items exist
+            if not has_real_buyer and not has_real_items:
+                continue
+
+            inv_data = dict(inv)
+            if not inv_data.get('invoice_date'):
+                inv_data['invoice_date'] = today_ist
+
+            # Assign sequential invoice number if missing
+            if not inv_data.get('invoice_number') and suggested_inv:
+                inv_data['invoice_number'] = format_sequential_invoice_number(suggested_inv, idx)
+
+            # Normalize buyer profile info on invoice
+            if inv_data.get('buyer_name') or inv_data.get('buyer_details'):
+                temp_p = {
+                    'buyer_name': inv_data.get('buyer_name', ''),
+                    'buyer_details': inv_data.get('buyer_details') or [inv_data.get('buyer_name', '')],
+                    'gstin': inv_data.get('gstin', ''),
+                    'aadhaar': inv_data.get('aadhaar') or inv_data.get('aadhar', ''),
+                    'state': inv_data.get('state', ''),
+                    'state_code': inv_data.get('state_code', ''),
+                    'default_tax_type': inv_data.get('tax_type', 'IGST')
+                }
+                norm_p = normalize_buyer_profile(temp_p)
+                inv_data['buyer_details'] = norm_p['buyer_details']
+                inv_data['gstin'] = norm_p['gstin']
+                inv_data['aadhaar'] = norm_p.get('aadhaar', '')
+                inv_data['state'] = norm_p['state']
+                inv_data['state_code'] = norm_p['state_code']
+                inv_data['tax_type'] = norm_p['default_tax_type']
+
+            # Auto-persist new buyer if requested
+            if inv_data.get('is_new_buyer') and inv_data.get('buyer_name') and create_buyer_if_new:
+                b_name = inv_data.get('buyer_name', '').strip()
+                matched = next((kb for kb in known_buyers if kb.get('buyer_name', '').strip().lower() == b_name.lower()), None)
+                if matched:
+                    inv_data['is_new_buyer'] = False
+                    inv_data['matched_profile_id'] = matched.get('profile_id')
+                else:
+                    new_profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+                    new_profile_raw = {
+                        'profile_id': new_profile_id,
+                        'buyer_name': b_name,
+                        'buyer_details': inv_data.get('buyer_details') or [b_name],
+                        'gstin': inv_data.get('gstin', '').strip().upper(),
+                        'aadhaar': inv_data.get('aadhaar', ''),
+                        'state': inv_data.get('state', ''),
+                        'state_code': inv_data.get('state_code', ''),
+                        'default_tax_type': inv_data.get('tax_type', 'IGST')
+                    }
+                    new_profile = normalize_buyer_profile(new_profile_raw)
+                    try:
+                        db = get_sheets_db_or_none()
+                        if db:
+                            db.save_buyer(new_profile)
+                            known_buyers.append(new_profile)
+                    except Exception as err:
+                        app.logger.warning("Could not auto-save new buyer profile: %s", err)
+                    inv_data['matched_profile_id'] = new_profile_id
+                    inv_data['created_profile'] = new_profile
+
+            # Normalize items: guarantee default description, Bags unit, and numeric types
+            norm_items = []
+            raw_items = inv_data.get('items', [])
+            if isinstance(raw_items, list):
+                for it in raw_items:
+                    if isinstance(it, dict):
+                        norm_items.append({
+                            'description': it.get('description') or 'Aluminium Utensils',
+                            'bags': str(it.get('bags') or ''),
+                            'unit': it.get('unit') or 'Bags',
+                            'quantity': float(it.get('quantity') or 0),
+                            'rate': float(it.get('rate') or 0),
+                            'hsn': it.get('hsn') or '76151030'
+                        })
+            inv_data['items'] = norm_items
+            parsed_invoices.append(inv_data)
+
+        # Execute agentic tools if returned by the model
+        saved_buyers_list = []
+        tools_called = parsed_response.get('tools_called', [])
+        if isinstance(tools_called, list):
+            for tc in tools_called:
+                if isinstance(tc, dict) and tc.get('name') == 'save_or_update_buyer':
+                    args = tc.get('args') or {}
+                    b_name = (args.get('buyer_name') or '').strip()
+                    if b_name:
+                        p_id = (args.get('profile_id') or '').strip()
+                        if not p_id:
+                            m_kb = next((kb for kb in known_buyers if kb.get('buyer_name', '').strip().lower() == b_name.lower()), None)
+                            p_id = m_kb.get('profile_id') if m_kb else f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+                        
+                        raw_bp = {
+                            'profile_id': p_id,
+                            'buyer_name': b_name,
+                            'buyer_details': args.get('buyer_details') or [b_name],
+                            'gstin': (args.get('gstin') or '').strip().upper(),
+                            'aadhaar': (args.get('aadhaar') or '').strip(),
+                            'state': (args.get('state') or '').strip(),
+                            'state_code': (args.get('state_code') or '').strip(),
+                            'default_tax_type': args.get('default_tax_type') or 'IGST'
+                        }
+                        norm_bp = normalize_buyer_profile(raw_bp)
+                        try:
+                            db = get_sheets_db_or_none()
+                            if db:
+                                db.save_buyer(norm_bp)
+                                saved_buyers_list.append(norm_bp)
+                                known_buyers = [kb for kb in known_buyers if kb.get('profile_id') != p_id]
+                                known_buyers.append(norm_bp)
+                        except Exception as b_err:
+                            app.logger.warning("Agent tool save_or_update_buyer error: %s", b_err)
+
+        # Retain previous working bills if the user requested conversational tweaks and no new bills were returned
+        if not parsed_invoices and (current_invoices or current_draft) and not parsed_response.get('invoices'):
+            parsed_invoices = current_invoices if current_invoices else ([current_draft] if current_draft else [])
+
+        primary_invoice = parsed_invoices[0] if parsed_invoices else None
+
+        return jsonify({
+            'success': True,
+            'model': model,
+            'conversational_message': parsed_response.get('conversational_message', 'Extracted details from slip.'),
+            'tools_called': tools_called,
+            'saved_buyers': saved_buyers_list,
+            'has_clarifications': parsed_response.get('has_clarifications', False),
+            'clarifications': parsed_response.get('clarifications', []),
+            'is_duplicate_invoice': parsed_response.get('is_duplicate_invoice', False),
+            'duplicate_warning': parsed_response.get('duplicate_warning'),
+            'suggested_next_invoice_number': parsed_response.get('suggested_next_invoice_number', suggested_inv),
+            'invoices': parsed_invoices,
+            'data': primary_invoice,
+            'raw_response': text_out
+        })
 
     return jsonify({
         'success': False,
@@ -2694,15 +2905,19 @@ def api_ai_parse_bill():
     }), 503
 
 
+@app.route('/api/buyer/save', methods=['POST'])
 @app.route('/api/ai/create-buyer', methods=['POST'])
-def api_ai_create_buyer():
-    """Create a new buyer profile directly from AI Assistant into Google Sheets directory."""
+def api_save_buyer():
+    """Create or update a buyer profile in Google Sheets and memory directory."""
     data = request.get_json(silent=True) or {}
     buyer_name = (data.get('buyer_name') or '').strip()
     if not buyer_name:
         return jsonify({'success': False, 'error': 'Buyer name is required.'}), 400
 
-    profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+    profile_id = (data.get('profile_id') or '').strip()
+    if not profile_id:
+        profile_id = f"buyer_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+
     details = data.get('buyer_details')
     if isinstance(details, str):
         details = [line.strip() for line in details.splitlines() if line.strip()]
@@ -2722,24 +2937,57 @@ def api_ai_create_buyer():
         'buyer_name': buyer_name,
         'buyer_details': details,
         'gstin': gstin,
+        'aadhaar': (data.get('aadhaar') or data.get('aadhar') or '').strip(),
         'state': state,
         'state_code': state_code,
         'default_tax_type': tax_type
     }
-    new_profile = normalize_buyer_profile(raw_profile)
+    normalized = normalize_buyer_profile(raw_profile)
 
     try:
         db = get_sheets_db_or_none()
         if db:
-            db.save_buyer(new_profile)
+            db.save_buyer(normalized)
     except Exception as exc:
         app.logger.warning("Failed to save buyer to Sheets: %s", exc)
 
+    # Persist locally to buyer_profiles.json files if available
+    for json_path in ['buyer_profiles.json', 'cloud/buyer_profiles.json']:
+        try:
+            if os.path.exists(json_path):
+                with open(json_path, 'r', encoding='utf-8') as f:
+                    local_buyers = json.load(f)
+                b_idx = next((i for i, b in enumerate(local_buyers) if b.get('profile_id') == normalized['profile_id']), -1)
+                if b_idx >= 0:
+                    local_buyers[b_idx] = normalized
+                else:
+                    local_buyers.append(normalized)
+                with open(json_path, 'w', encoding='utf-8') as f:
+                    json.dump(local_buyers, f, indent=2, ensure_ascii=False)
+        except Exception as file_exc:
+            app.logger.warning("Failed to save buyer to %s: %s", json_path, file_exc)
+
     return jsonify({
         'success': True,
-        'buyer': new_profile,
+        'buyer': normalized,
         'message': f"Saved '{buyer_name}' to directory."
     })
+
+api_ai_create_buyer = api_save_buyer
+
+
+@app.route('/api/buyer/<profile_id>', methods=['GET'])
+def api_get_buyer(profile_id):
+    """Retrieve a single buyer profile."""
+    try:
+        db = get_sheets_db_or_none()
+        if db:
+            b = db.get_buyer(profile_id)
+            if b:
+                return jsonify({'success': True, 'buyer': normalize_buyer_profile(b)})
+    except Exception as exc:
+        app.logger.warning("Failed to load buyer %s: %s", profile_id, exc)
+    return jsonify({'success': False, 'error': 'Buyer not found'}), 404
 
 
 @app.route('/api/generate_batch', methods=['POST'])

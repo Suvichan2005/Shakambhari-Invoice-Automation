@@ -18,12 +18,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     # Business Identity
     "company_name": "Shakambhari Enterprises",
     "company_subtitle": "Aluminium Utensils Manufacturing & Trading",
-    "company_address": "123, Sample Industrial Area, Kolkata - 700001, West Bengal",
-    "company_gstin": "19AAAAA0000A1Z5",
+    "company_address": "5th Floor, Flat 26B, Om Bhawan, 54/5A, Strand Road, Jorabagan, Kolkata - 700006, WB (19)",
+    "company_gstin": "19ACZPN5725A1Z8",
     "company_state": "West Bengal",
     "company_state_code": "19",
     "company_phone": "",
-    "company_dispatch_address": "Plot No. 45, Warehouse Complex, Howrah - 711101, West Bengal",
+    "company_dispatch_address": "144/145 J.N Mukherjee Road, Ghusuri, Howrah (Near Rajesh Weight Bridge)",
 
     # Invoice Numbering & Formatting
     "invoice_prefix": "",
@@ -42,12 +42,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "gemini_primary_model": "gemini-3.8-flash",
     "gemini_backup_models": [
         "gemini-3.7-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite",
+        "gemini-3.1-flash-lite-preview",
         "gemini-3.6-flash",
         "gemini-3.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash",
-        "gemini-2.5-flash-lite"
+        "gemini-3.5-flash-lite"
     ],
     "gemini_backend_api_key": os.environ.get("GEMINI_API_KEY", ""),
 
@@ -59,6 +59,9 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
 
 DEPRECATED_OR_DISALLOWED_MODELS = {
     "gemini-flash-latest",
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-pro",
     "gemini-2.0-flash",
     "gemini-2.0-flash-001",
     "gemini-2.0-flash-lite",
@@ -79,9 +82,7 @@ ACTIVE_STANDARD_MODELS = [
     "gemini-3.6-flash",
     "gemini-3.5-flash",
     "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-2.5-flash",
-    "gemini-2.5-flash-lite"
+    "gemini-3.1-flash-lite"
 ]
 
 
